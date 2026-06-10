@@ -98,6 +98,15 @@
                     "showBadge": true,
                     "showLabelsOnlyWhenOccupied": true,
                     "unfocusedIconsOpacity": 1
+                },
+                {
+                    "clockColor": "none",
+                    "customFont": "Adwaita Sans",
+                    "formatHorizontal": "HH:mm ddd, MMM dd",
+                    "formatVertical": "HH mm - dd MM",
+                    "id": "Clock",
+                    "tooltipFormat": "HH:mm ddd, MMM dd",
+                    "useCustomFont": false
                 }
             ],
             "left": [
@@ -110,15 +119,6 @@
                     "iconColor": "none",
                     "id": "Launcher",
                     "useDistroLogo": false
-                },
-                {
-                    "clockColor": "none",
-                    "customFont": "",
-                    "formatHorizontal": "HH:mm ddd, MMM dd",
-                    "formatVertical": "HH mm - dd MM",
-                    "id": "Clock",
-                    "tooltipFormat": "HH:mm ddd, MMM dd",
-                    "useCustomFont": false
                 },
                 {
                     "compactMode": true,
@@ -365,7 +365,7 @@
         "allowPanelsOnScreenWithoutBar": true,
         "allowPasswordWithFprintd": false,
         "animationDisabled": false,
-        "animationSpeed": 0.9,
+        "animationSpeed": 1.25,
         "autoStartAuth": false,
         "avatarImage": "/home/guicassol/.face",
         "boxRadiusRatio": 1,
