@@ -7,6 +7,3 @@ source /usr/share/cachyos-fish-config/cachyos-config.fish
 #end
 set -gx SSH_AUTH_SOCK ~/.ssh/agent.sock
 set -gx SSH_AUTH_SOCK ~/.ssh/agent.sock
-
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f '/home/guicassol/google-cloud-sdk/path.fish.inc' ]; . '/home/guicassol/google-cloud-sdk/path.fish.inc'; end
