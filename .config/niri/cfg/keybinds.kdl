@@ -18,6 +18,7 @@ binds {
     Mod+Shift+I                        { show-hotkey-overlay; }
     Mod+Shift+L                         hotkey-overlay-title="Lock the Screen" { spawn-sh "qs -c noctalia-shell ipc call lockScreen lock"; }
     Mod+V { spawn "qs" "-c" "noctalia-shell" "ipc" "call" "launcher" "clipboard"; }
+    Mod+C { spawn "gnome-calculator"; }
 
     // Please choose your own file manager.
     Mod+E                               hotkey-overlay-title="File Manager: Nautilus" { spawn "nautilus"; }
@@ -112,7 +113,6 @@ binds {
 
     // ─── Layout Controls ───
     Mod+CTRL+F                          { maximize-window-to-edges; }
-    Mod+C                               { center-column; }
     Mod+CTRL+C                          { center-visible-columns; }
     Mod+Minus                           { set-column-width "-10%"; }
     Mod+Equal                           { set-column-width "+10%"; }
