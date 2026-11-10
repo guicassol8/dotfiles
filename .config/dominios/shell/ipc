@@ -1,0 +1,24 @@
+#!/bin/sh
+# Atalhos do desktop que falam com o shell. Tenta o Noctalia 5; se ele nao estiver
+# rodando, cai no noctalia-shell 4 (Quickshell). Assim os atalhos funcionam nos dois.
+v5() { noctalia msg "$@" >/dev/null 2>&1; }
+v4() { qs -c noctalia-shell ipc call "$@" >/dev/null 2>&1; }
+case "$1" in
+    lancador)  v5 panel-toggle launcher  || v4 launcher toggle ;;
+    area)      v5 panel-toggle clipboard || v4 launcher clipboard ;;
+    bloquear)  v5 session lock           || v4 lockScreen lock ;;
+    sessao)    v5 panel-toggle session   || v4 sessionMenu toggle ;;
+    central)   v5 panel-toggle control-center || v4 controlCenter toggle ;;
+    vol+)      v5 volume-up              || v4 volume increase ;;
+    vol-)      v5 volume-down            || v4 volume decrease ;;
+    mudo)      v5 volume-mute            || v4 volume muteOutput ;;
+    mic)       v5 mic-mute               || v4 volume muteInput ;;
+    proxima)   v5 media next             || v4 media next ;;
+    anterior)  v5 media previous         || v4 media previous ;;
+    tocar)     v5 media toggle           || v4 media playPause ;;
+    brilho+)   v5 brightness-up          || v4 brightness increase ;;
+    brilho-)   v5 brightness-down        || v4 brightness decrease ;;
+    missoes)   v5 panel-toggle local/dominios:missoes || exec "$HOME/.config/dominios/bin/missao" painel ;;
+    agentes)   v5 panel-toggle local/dominios:agentes || exec "$HOME/.config/dominios/bin/agentes" painel ;;
+    *) echo "uso: ipc lancador|area|bloquear|sessao|central|vol+|vol-|mudo|mic|proxima|anterior|tocar|brilho+|brilho-|missoes|agentes" >&2; exit 2 ;;
+esac

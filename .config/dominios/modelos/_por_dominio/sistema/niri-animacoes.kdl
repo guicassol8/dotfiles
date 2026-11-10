@@ -1,0 +1,57 @@
+    // Sistema: a janela e materializada por uma linha de varredura holografica
+    window-open {
+        duration-ms 380
+        curve "ease-out-quad"
+        custom-shader r"
+            vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+                float p = niri_clamped_progress;
+                vec2 uv = coords_geo.xy;
+                if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
+                float frente = p * 1.16;
+                float d = frente - uv.y;
+                float faixa = smoothstep(0.14, 0.0, abs(d));
+                float linha = floor(uv.y * size_geo.y / 3.0);
+                float r = fract(sin(linha * 91.7 + niri_random_seed * 43.0) * 43758.5453) - 0.5;
+                vec3 ct = niri_geo_to_tex * vec3(uv.x + r * 0.05 * faixa, uv.y, 1.0);
+                vec4 cor = texture2D(niri_tex, ct.st) * smoothstep(0.0, 0.02, d);
+                vec3 azul = vec3({{cor.primaria|glsl}});
+                float holo = faixa * (0.5 + 0.5 * sin(uv.y * size_geo.y * 1.6)) * 0.45;
+                cor.rgb = mix(cor.rgb, azul * cor.a, holo);
+                float borda = smoothstep(0.03, 0.0, abs(d));
+                cor += vec4(azul, 1.0) * borda * (1.0 - p * 0.4);
+                return cor;
+            }
+        "
+    }
+    // ...e desfeita de baixo para cima, soltando particulas
+    window-close {
+        duration-ms 300
+        curve "ease-out-quad"
+        custom-shader r"
+            vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+                float p = niri_clamped_progress;
+                vec2 uv = coords_geo.xy;
+                if (uv.x < 0.0 || uv.x > 1.0 || uv.y < -0.3 || uv.y > 1.0) return vec4(0.0);
+                float frente = 1.0 - p * 1.2;
+                float d = frente - uv.y;
+                vec4 cor = vec4(0.0);
+                if (uv.y >= 0.0) {
+                    vec3 ct = niri_geo_to_tex * vec3(uv, 1.0);
+                    cor = texture2D(niri_tex, ct.st) * smoothstep(0.0, 0.02, d);
+                }
+                vec3 azul = vec3({{cor.primaria|glsl}});
+                float borda = smoothstep(0.03, 0.0, abs(d)) * step(0.0, uv.y);
+                float coluna = floor(uv.x * size_geo.x / 4.0);
+                float h = fract(sin(coluna * 12.9898 + niri_random_seed * 78.233) * 43758.5453);
+                float rastro = step(0.78, h) * step(d, 0.0) * smoothstep(0.30 * h + 0.03, 0.0, -d);
+                cor += vec4(azul, 1.0) * (borda + rastro * 0.6) * (1.0 - p);
+                return cor;
+            }
+        "
+    }
+    workspace-switch {
+        spring damping-ratio=1.0 stiffness=1100 epsilon=0.0001
+    }
+    window-movement {
+        spring damping-ratio=1.0 stiffness=900 epsilon=0.0001
+    }

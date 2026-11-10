@@ -1,0 +1,161 @@
+/* Dominios: nova aba. Nenhuma cor ou fonte fixa aqui: nova-aba.js le dominio.json
+   (copia do tokens.json do dominio ativo) e define as variaveis --cor-*, --ansi-*,
+   --fonte-* e --forma-* na raiz. Sem o JSON, valem as cores de sistema do navegador. */
+:root {
+  --fundo: var(--cor-fundo, Canvas);
+  --superficie: var(--cor-superficie, Canvas);
+  --contorno: var(--cor-contorno, GrayText);
+  --texto: var(--cor-texto, CanvasText);
+  --suave: var(--cor-texto-suave, GrayText);
+  --acento: var(--cor-primaria, Highlight);
+  --raio: var(--forma-raio, 8px);
+  --borda: var(--forma-borda, 1px);
+  --f-ui: var(--fonte-ui, system-ui), system-ui, sans-serif;
+  --f-destaque: var(--fonte-destaque, system-ui), var(--fonte-ui, system-ui), system-ui, sans-serif;
+  --f-mono: var(--fonte-mono, monospace), var(--fonte-mono-reserva, monospace), monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--f-ui);
+  overflow: hidden;
+  opacity: 0;
+}
+
+.pronto body { opacity: 1; transition: opacity 0.14s ease-out; }
+
+/* papel de parede do dominio, desfocado para virar clima e nao brigar com o relogio */
+.papel {
+  position: fixed;
+  inset: -48px;
+  background-position: center;
+  background-size: cover;
+  filter: blur(16px) saturate(1.15);
+  opacity: 0;
+  transition: opacity 0.35s ease-out;
+}
+
+.papel.visivel { opacity: 1; }
+
+.veu {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 54% 50% at 50% 45%, color-mix(in srgb, var(--fundo) 80%, transparent), color-mix(in srgb, var(--fundo) 66%, transparent) 42%, color-mix(in srgb, var(--fundo) 10%, transparent) 86%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--fundo) 28%, transparent), transparent 30%, transparent 64%, color-mix(in srgb, var(--fundo) 66%, transparent));
+}
+
+main {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 6vw 10vh;
+  text-align: center;
+}
+
+.rotulo {
+  margin: 0;
+  padding-left: 0.6em;
+  color: var(--acento);
+  font-family: var(--f-destaque);
+  font-size: clamp(0.8rem, 1.15vw, 1.15rem);
+  font-weight: 600;
+  letter-spacing: 0.6em;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--acento) 55%, transparent);
+}
+
+.relogio {
+  margin: 0.06em 0 0;
+  font-family: var(--f-destaque);
+  font-size: clamp(5rem, 15vw, 14rem);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 42px color-mix(in srgb, var(--acento) 38%, transparent),
+    0 2px 22px color-mix(in srgb, var(--fundo) 80%, transparent);
+}
+
+.data {
+  margin: 0.5em 0 0;
+  color: var(--suave);
+  font-size: clamp(1rem, 1.5vw, 1.45rem);
+  letter-spacing: 0.04em;
+}
+
+.data::first-letter { text-transform: uppercase; }
+
+.busca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(40rem, 82vw);
+  margin-top: clamp(1.6rem, 4.5vh, 3rem);
+  padding: 0 1.15rem;
+  background: color-mix(in srgb, var(--superficie) 80%, transparent);
+  border: var(--borda) solid var(--contorno);
+  border-radius: calc(var(--raio) * 1.4);
+  backdrop-filter: blur(10px);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.busca:focus-within {
+  border-color: var(--acento);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--acento) 22%, transparent),
+    0 0 36px color-mix(in srgb, var(--acento) 20%, transparent);
+}
+
+.lupa {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: var(--suave);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke 0.15s;
+}
+
+.busca:focus-within .lupa { stroke: var(--acento); }
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  height: 3.3rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: var(--texto);
+  caret-color: var(--acento);
+  font: inherit;
+  font-size: 1.15rem;
+}
+
+.busca input::placeholder { color: var(--suave); opacity: 0.8; }
+.busca input::selection { background: color-mix(in srgb, var(--acento) 40%, transparent); }
+
+.lema {
+  position: absolute;
+  inset: auto 6vw 4.5vh;
+  margin: 0;
+  color: var(--suave);
+  font-size: clamp(0.95rem, 1.2vw, 1.2rem);
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 12px var(--fundo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pronto body, .papel, .busca, .lupa { transition: none; }
+}

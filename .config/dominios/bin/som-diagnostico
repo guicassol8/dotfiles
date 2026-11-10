@@ -1,0 +1,63 @@
+#!/bin/bash
+# som-diagnostico: mostra em 10 segundos se o audio esta saudavel.
+# O que prova a correcao: WirePlumber sem mortes e sem crescer de memoria depois de
+# tocar por um bom tempo, e a linha "correcao no kernel: ATIVA".
+# Para medir os eventos falsos do jack ele toca um tom por 6 s COM A SAIDA MUTADA
+# (o jack so oscila com sinal de verdade, silencio digital nao reproduz) e devolve
+# o mudo ao estado em que estava. Se tiver musica tocando, ela fica muda esses 6 s.
+set -u
+card=$(awk '/ALC256/{print FILENAME}' /proc/asound/card*/codec#* 2>/dev/null | head -1 | sed -E 's|.*/card([0-9]+)/.*|\1|')
+wp=$(pgrep -x wireplumber | head -1)
+echo "== WirePlumber =="
+if [ -n "$wp" ]; then
+    echo "  de pe ha $(ps -o etime= -p "$wp" | tr -d ' '), usando $(( $(awk '/VmRSS/{print $2}' /proc/"$wp"/status) / 1024 )) MB (normal: 20 a 60 MB; o teto de seguranca e 256 MB)"
+else
+    echo "  NAO esta rodando"
+fi
+mortes=$(journalctl --user -u wireplumber -b --no-pager 2>/dev/null | grep -c "oom-kill")
+ultima=$(journalctl --user -u wireplumber -b --no-pager -o short 2>/dev/null | grep "oom-kill" | tail -1 | awk '{print $1, $2, $3}')
+echo "  mortes por falta de memoria neste boot: $mortes${ultima:+ (a ultima em $ultima)}. Tem de ser 0 (antes da correcao de 10/nov eram dezenas por dia)."
+echo "== Deteccao do jack (codec ALC256, placa ${card:-?}) =="
+if [ -n "$card" ] && command -v alsactl >/dev/null && command -v pw-play >/dev/null; then
+    tmp=$(mktemp --suffix=.wav)
+    python3 - "$tmp" <<'PY'
+import math, struct, sys, wave
+w = wave.open(sys.argv[1], "wb"); w.setnchannels(2); w.setsampwidth(2); w.setframerate(48000)
+quadros = bytearray()
+for i in range(48000 * 6):
+    v = int(9000 * math.sin(2 * math.pi * 440 * i / 48000))
+    quadros += struct.pack("<hh", v, v)
+w.writeframes(bytes(quadros)); w.close()
+PY
+    estava_mudo=0
+    wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -q MUTED && estava_mudo=1
+    wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 2>/dev/null
+    ( timeout 6 pw-play "$tmp" >/dev/null 2>&1 & )
+    n=$(timeout 6 alsactl monitor "hw:$card" 2>/dev/null | grep -c "Jack")
+    [ "$estava_mudo" -eq 0 ] && wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 2>/dev/null
+    rm -f "$tmp"
+    echo "  eventos de jack em 6 s tocando: $n (dezenas = o pino esta oscilando agora; 0 = quieto agora. A oscilacao vai e vem, entao 0 sozinho nao prova nada)"
+    pino=$(grep -h "^0x19 " "/sys/class/sound/hwC${card}D0/user_pin_configs" 2>/dev/null | awk '{print $2}')
+    if [ "$pino" = "0x03a1113c" ]; then
+        echo "  correcao no kernel: ATIVA (pino 0x19 = $pino, sem deteccao de presenca)"
+    elif [ -f /etc/modprobe.d/acer-a515-45-alc256.conf ]; then
+        echo "  correcao no kernel: instalada, mas NAO ativa neste boot (falta reiniciar; se ja reiniciou, o patch nao carregou)"
+    else
+        echo "  correcao no kernel: nao instalada (root/extras.d/10-audio-alc256.sh)"
+    fi
+    if [ -f "$HOME/.config/alsa-card-profile/mixer/paths/analog-input-headset-mic.conf" ]; then
+        echo "  contorno no PipeWire: ativo (os eventos nao chegam mais ao WirePlumber)"
+    else
+        echo "  contorno no PipeWire: AUSENTE"
+    fi
+    amixer -c "$card" contents 2>/dev/null | grep -i "Headset Mic" | sed 's/^/  controle: /' | head -2
+fi
+echo "== Bluetooth =="
+if command -v bluetoothctl >/dev/null; then
+    timeout 4 bluetoothctl devices Connected 2>/dev/null | sed 's/^/  conectado: /' | head -4
+    wpctl status 2>/dev/null | grep -iE "bluez|bluetooth" | sed 's/^/  /' | head -6
+    [ -z "$(timeout 4 bluetoothctl devices Connected 2>/dev/null)" ] && echo "  nenhum fone conectado agora"
+fi
+echo "== Saida padrao =="
+wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -E "node.description|api.bluez5.codec|api.bluez5.profile" | sed 's/^ *[*]* */  /'
+echo "  volume: $(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)"

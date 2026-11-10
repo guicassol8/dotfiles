@@ -1,0 +1,439 @@
+# Dominios: fonte unica de cor, fonte e forma do desktop.
+#
+# Quem le este arquivo: gerar/construir.py (renderiza tudo em _build/<dominio>/)
+# e bin/dominio (troca o dominio ativo). Nenhum modelo em modelos/ tem cor ou
+# fonte literal: mudar um valor aqui e rodar `dominio construir` tem de bastar.
+#
+# Cor em hex de 6 digitos. `raio`, `borda` e `vaos` em pixels logicos.
+# A ordem de [ordem].lista e a ordem do ciclo de `dominio proximo`.
+# [ordem].extras sao dominios que existem mas ficam FORA do ciclo (e do sorteio do
+# boot): so entram por nome, pelo seletor ou por `dominio apresentar` (Mod+N).
+#
+# [<dominio>.modo] e opcional. Chaves (padrao entre parenteses):
+#   apresentacao (false)  ao entrar liga o Nao Perturbe e segura a tela acordada;
+#                         ao sair devolve os dois como estavam
+#   saudacao     (true)   o terminal abre com a ficha do dominio (fastfetch)
+# [<dominio>.login] e opcional: ajustes da tela de login (chaves em gerar/login.py).
+
+[ordem]
+lista = ["sistema", "grimorio", "setor2814", "maldicao"]
+extras = ["neutro"]
+
+# ---------------------------------------------------------------- SISTEMA
+# Solo Leveling: janela holografica azul sobre preto, HUD de cacador.
+[sistema]
+nome = "Sistema"
+rotulo = "SISTEMA"
+glifo = "󰚩"
+lema = "Erga-se."
+bloqueio = "O Sistema aguarda o Jogador."
+notificacao = "[Sistema]"
+expansao = "O Sistema foi ativado."
+glifo_shell = "exclamation-circle"
+missoes_titulo = "MISSÃO DIÁRIA"
+
+# Rotulos da ficha do terminal (fastfetch)
+[sistema.ficha]
+titulo = "STATUS DO JOGADOR"
+usuario = "JOGADOR"
+so = "MUNDO"
+kernel = "NÚCLEO"
+uptime = "TEMPO ATIVO"
+pacotes = "ITENS"
+wm = "PORTAL"
+terminal = "CONSOLE"
+cpu = "FORÇA"
+memoria = "MANA"
+disco = "INVENTÁRIO"
+bateria = "VIDA"
+
+[sistema.cor]
+fundo = "#05080F"
+superficie = "#0A1120"
+superficie2 = "#111C33"
+contorno = "#223A66"
+texto = "#DCEBFF"
+texto_suave = "#7E97C2"
+primaria = "#4FC3FF"
+sobre_primaria = "#03111F"
+secundaria = "#8E7BFF"
+sobre_secundaria = "#0D0826"
+terciaria = "#35F0C8"
+sobre_terciaria = "#02201A"
+erro = "#FF4D6D"
+sobre_erro = "#2B0010"
+aviso = "#FFC857"
+ok = "#35F0C8"
+
+[sistema.ansi]
+preto = "#0A1120"
+vermelho = "#FF4D6D"
+verde = "#35F0C8"
+amarelo = "#FFC857"
+azul = "#4FC3FF"
+magenta = "#8E7BFF"
+ciano = "#7DE9FF"
+branco = "#C5D6F2"
+preto_claro = "#3A527F"
+vermelho_claro = "#FF7A93"
+verde_claro = "#7BFFE0"
+amarelo_claro = "#FFDD8F"
+azul_claro = "#8AD9FF"
+magenta_claro = "#B5A8FF"
+ciano_claro = "#B3F5FF"
+branco_claro = "#F2F8FF"
+
+[sistema.fonte]
+ui = "Rajdhani"
+destaque = "Orbitron"
+mono = "JetBrains Mono"
+mono_reserva = "MesloLGS Nerd Font"
+mono_tamanho = 11.5
+
+[sistema.forma]
+raio = 3
+borda = 2
+vaos = 10
+opacidade_terminal = 0.90
+barra = "topo"
+
+# --------------------------------------------------------------- GRIMORIO
+# Despertar da Mana: cores copiadas de identidade/tokens.toml ([tema.escuro]),
+# o tema escuro que o livro deixou preparado. As seis cores ANSI principais sao
+# os seis elementos. Se o tokens.toml do livro mudar, atualize aqui.
+[grimorio]
+nome = "Grimório"
+rotulo = "DESPERTAR DA MANA"
+glifo = "󱉟"
+lema = "A mana está em todos, e o poder que ela dá é justo."
+bloqueio = "O grimório está selado."
+notificacao = "Do grimório:"
+expansao = "O grimório se abre."
+glifo_shell = "flare"
+missoes_titulo = "OFÍCIOS DO DIA"
+
+# Rotulos da ficha do terminal (fastfetch)
+[grimorio.ficha]
+titulo = "FICHA DO CONJURADOR"
+usuario = "CONJURADOR"
+so = "MUNDO"
+kernel = "NÚCLEO"
+uptime = "VIGÍLIA"
+pacotes = "COMPONENTES"
+wm = "CÍRCULO"
+terminal = "PENA"
+cpu = "FOCO"
+memoria = "MANA"
+disco = "GRIMÓRIO"
+bateria = "FÔLEGO"
+
+[grimorio.cor]
+fundo = "#17141D"          # tema.escuro.base.pagina
+superficie = "#1F1A28"     # tema.escuro.base.papel
+superficie2 = "#2C2440"    # tema.escuro.mana.claro
+contorno = "#3A3348"       # tema.escuro.base.filete
+texto = "#EDE7F6"          # tema.escuro.base.tinta
+texto_suave = "#B0A7C4"    # tema.escuro.base.tinta-suave
+primaria = "#A99BD9"       # tema.escuro.mana.base
+sobre_primaria = "#17141D"
+secundaria = "#C8BDEC"     # tema.escuro.mana.escuro
+sobre_secundaria = "#1F1A28"
+terciaria = "#D3AE73"      # elemento terra
+sobre_terciaria = "#332714"
+erro = "#E8866E"           # elemento fogo
+sobre_erro = "#3A211B"
+aviso = "#FFD43B"          # elemento eletricidade
+ok = "#74C5B0"             # elemento vento
+
+[grimorio.ansi]
+preto = "#1F1A28"
+vermelho = "#E8866E"       # fogo
+verde = "#74C5B0"          # vento
+amarelo = "#D3AE73"        # terra
+azul = "#7FBBE0"           # agua
+magenta = "#B4A5DD"        # mana pura
+ciano = "#85BBC0"          # elixir
+branco = "#D9D1E6"
+preto_claro = "#4A4066"    # mana.leader
+vermelho_claro = "#DBAA80" # explosao
+verde_claro = "#86BCA4"    # som
+amarelo_claro = "#FFD43B"  # eletricidade
+azul_claro = "#9EB7D2"     # gelo
+magenta_claro = "#C8BDEC"
+ciano_claro = "#A9D6DA"
+branco_claro = "#FFFFFF"
+
+[grimorio.elementos]
+fogo = "#E8866E"
+agua = "#7FBBE0"
+terra = "#D3AE73"
+vento = "#74C5B0"
+eletricidade = "#FFD43B"
+mana-pura = "#B4A5DD"
+
+[grimorio.fonte]
+ui = "Alegreya Sans"
+destaque = "Cinzel"
+mono = "FantasqueSansM Nerd Font"
+mono_reserva = "JetBrains Mono"
+mono_tamanho = 12.5
+
+[grimorio.forma]
+raio = 14
+borda = 1
+vaos = 16
+opacidade_terminal = 0.94
+barra = "topo"
+
+# -------------------------------------------------------------- SETOR 2814
+# Tropa dos Lanternas Verdes. As cores ANSI sao o espectro emocional:
+# vermelho raiva, laranja avareza, amarelo medo, verde vontade, azul esperanca,
+# indigo compaixao, violeta amor, branco vida.
+[setor2814]
+nome = "Setor 2814"
+rotulo = "SETOR 2814"
+glifo = "󰻂"
+lema = "No dia mais claro, na noite mais densa."
+bloqueio = "No dia mais claro, na noite mais densa, o mal sucumbirá ante a minha presença."
+notificacao = "Anel:"
+expansao = "Anel carregado. Vontade a 100%."
+glifo_shell = "circle-dot"
+missoes_titulo = "ORDENS DO DIA"
+
+# Rotulos da ficha do terminal (fastfetch)
+[setor2814.ficha]
+titulo = "REGISTRO DO ANEL"
+usuario = "LANTERNA"
+so = "SETOR"
+kernel = "BATERIA CENTRAL"
+uptime = "PATRULHA"
+pacotes = "CONSTRUCTOS"
+wm = "OA"
+terminal = "ANEL"
+cpu = "VONTADE"
+memoria = "MEMÓRIA"
+disco = "ARQUIVO"
+bateria = "CARGA DO ANEL"
+
+[setor2814.cor]
+fundo = "#020705"
+superficie = "#06120B"
+superficie2 = "#0B1F13"
+contorno = "#1A4A2E"
+texto = "#E4FFEE"
+texto_suave = "#7FB495"
+primaria = "#2BFF88"
+sobre_primaria = "#00240F"
+secundaria = "#B8FFD2"
+sobre_secundaria = "#06301A"
+terciaria = "#FFE14D"
+sobre_terciaria = "#2B2400"
+erro = "#FF4A3D"
+sobre_erro = "#2B0500"
+aviso = "#FFE14D"
+ok = "#2BFF88"
+
+[setor2814.ansi]
+preto = "#06120B"
+vermelho = "#FF4A3D"        # raiva
+verde = "#2BFF88"           # vontade
+amarelo = "#FFE14D"         # medo
+azul = "#6C7CFF"            # compaixao (indigo)
+magenta = "#D45CFF"         # amor (violeta)
+ciano = "#58C8FF"           # esperanca
+branco = "#CFEBDA"
+preto_claro = "#2A5A3D"
+vermelho_claro = "#FF7A6E"
+verde_claro = "#7DFFB6"
+amarelo_claro = "#FF9A3D"   # avareza (laranja)
+azul_claro = "#9AA5FF"
+magenta_claro = "#EB98FF"
+ciano_claro = "#9ADFFF"
+branco_claro = "#FFFFFF"    # vida
+
+[setor2814.fonte]
+ui = "Chakra Petch"
+destaque = "Chakra Petch"
+mono = "JetBrains Mono"
+mono_reserva = "MesloLGS Nerd Font"
+mono_tamanho = 11.5
+
+[setor2814.forma]
+raio = 20
+borda = 2
+vaos = 12
+opacidade_terminal = 0.88
+barra = "base"
+
+# ---------------------------------------------------------------- MALDICAO
+# JJK, Chainsaw Man e capa de phonk: preto, sangue e osso, cantos vivos.
+[maldicao]
+nome = "Maldição"
+rotulo = "領域展開"
+glifo = "󰚌"
+lema = "Pelos céus e pela terra, só eu sou o honrado."
+bloqueio = "領域展開"
+notificacao = "呪"
+expansao = "Expansão de Domínio."
+glifo_shell = "flame"
+missoes_titulo = "任務"
+
+# Rotulos da ficha do terminal (fastfetch)
+[maldicao.ficha]
+titulo = "REGISTRO DO FEITICEIRO"
+usuario = "FEITICEIRO"
+so = "ESCOLA"
+kernel = "TÉCNICA"
+uptime = "CORTINA"
+pacotes = "OBJETOS"
+wm = "DOMÍNIO"
+terminal = "SELO"
+cpu = "PRODUÇÃO"
+memoria = "ENERGIA"
+disco = "ARMAZÉM"
+bateria = "RESERVA"
+
+[maldicao.cor]
+fundo = "#0A0607"
+superficie = "#130A0C"
+superficie2 = "#1F0F13"
+contorno = "#4D1A22"
+texto = "#F2E9E4"
+texto_suave = "#A38B8C"
+primaria = "#FF2E43"
+sobre_primaria = "#1A0004"
+secundaria = "#A45CFF"
+sobre_secundaria = "#14052B"
+terciaria = "#FF8A1F"
+sobre_terciaria = "#2B1300"
+erro = "#FF2E43"
+sobre_erro = "#1A0004"
+aviso = "#FFB300"
+ok = "#9FD356"
+
+[maldicao.ansi]
+preto = "#130A0C"
+vermelho = "#FF2E43"
+verde = "#9FD356"
+amarelo = "#FFB300"
+azul = "#4B6BFF"            # energia amaldicoada
+magenta = "#A45CFF"         # vazio roxo
+ciano = "#46C9C0"
+branco = "#D9CCC7"
+preto_claro = "#5A3A3F"
+vermelho_claro = "#FF6B7A"
+verde_claro = "#C3EE7A"
+amarelo_claro = "#FFD25E"
+azul_claro = "#8296FF"
+magenta_claro = "#C792FF"
+ciano_claro = "#86E5DD"
+branco_claro = "#FFF8F3"
+
+[maldicao.fonte]
+ui = "Barlow Condensed"
+destaque = "Anton"
+mono = "Martian Mono"
+mono_reserva = "JetBrains Mono"
+mono_tamanho = 10.5
+
+[maldicao.forma]
+raio = 0
+borda = 3
+vaos = 6
+opacidade_terminal = 0.92
+barra = "esquerda"
+
+# ------------------------------------------------------------------ NEUTRO
+# Modo apresentacao: desktop comum, para cliente e para publico. Grafite com azul,
+# barra padrao no topo, sem emblema, sem lema, sem som, sem animacao propria e sem
+# nada pessoal na barra. Fora do ciclo: entra com Mod+N ou `dominio apresentar`.
+[neutro]
+nome = "Neutro"
+rotulo = ""
+glifo = "󰍹"
+lema = ""
+bloqueio = ""
+notificacao = ""
+expansao = "Modo apresentação"
+glifo_shell = "presentation"
+missoes_titulo = "Tarefas"
+vscode_tema = "Default Dark Modern"   # tema de fabrica do VS Code, em vez do gerado
+
+[neutro.modo]
+apresentacao = true
+saudacao = false
+
+[neutro.login]
+titulo = "Bem-vindo"
+emblema = "nenhum"
+moldura = "nenhuma"
+titulo_caixa = "normal"
+titulo_espaco = 0.0
+rotulos_caixa = "normal"
+rotulos_espaco = 0.0
+veu = 0.10
+
+# Rotulos da ficha do terminal (fastfetch). Em Neutro ela nao abre sozinha.
+[neutro.ficha]
+titulo = "Sistema"
+usuario = "Usuário"
+so = "Sistema"
+kernel = "Kernel"
+uptime = "Ligado há"
+pacotes = "Pacotes"
+wm = "Janelas"
+terminal = "Terminal"
+cpu = "Processador"
+memoria = "Memória"
+disco = "Disco"
+bateria = "Bateria"
+
+[neutro.cor]
+fundo = "#1C1E22"
+superficie = "#24272C"
+superficie2 = "#2E3239"
+contorno = "#434853"
+texto = "#E4E6EA"
+texto_suave = "#9AA0AA"
+primaria = "#6AA5F2"
+sobre_primaria = "#0A1A30"
+secundaria = "#8DB9F5"
+sobre_secundaria = "#0A1A30"
+terciaria = "#7CC5AC"
+sobre_terciaria = "#0A2A20"
+erro = "#F0787D"
+sobre_erro = "#360A0D"
+aviso = "#E5C07B"
+ok = "#8FCB7E"
+
+[neutro.ansi]
+preto = "#24272C"
+vermelho = "#E06C75"
+verde = "#98C379"
+amarelo = "#E5C07B"
+azul = "#61AFEF"
+magenta = "#C678DD"
+ciano = "#56B6C2"
+branco = "#C8CCD4"
+preto_claro = "#5C6370"
+vermelho_claro = "#EF8A91"
+verde_claro = "#B1D99A"
+amarelo_claro = "#F0D399"
+azul_claro = "#8CC5F5"
+magenta_claro = "#D69AE8"
+ciano_claro = "#7FD0DA"
+branco_claro = "#FFFFFF"
+
+[neutro.fonte]
+ui = "Adwaita Sans"
+destaque = "Adwaita Sans"
+mono = "JetBrains Mono"
+mono_reserva = "MesloLGS Nerd Font"
+mono_tamanho = 13.0          # um pouco maior: da para ler de longe e em projetor
+
+[neutro.forma]
+raio = 10
+borda = 2
+vaos = 8
+opacidade_terminal = 1.0     # opaco: projetor lava terminal translucido
+barra = "topo"

@@ -1,0 +1,24 @@
+# Maldicao: bloco seco, sem curva, com o kanji de selo
+format = """[ 呪 ](bold bg:primaria fg:sobre_primaria)[▌](fg:primaria bg:superficie)$directory[▌](fg:superficie)$git_branch$git_status$jobs$fill$nodejs$python$rust$cmd_duration
+$character"""
+
+[fill]
+symbol = "╱"
+style = "contorno"
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+read_only = " 󰌾"
+format = "[$path$read_only ]($style)"
+style = "bold bg:superficie fg:texto"
+
+[git_branch]
+symbol = " "
+format = " [$symbol$branch]($style) "
+style = "secundaria"
+
+[character]
+success_symbol = "[➤](bold primaria)"
+error_symbol = "[✖](bold erro)"
+vimcmd_symbol = "[◆](bold terciaria)"

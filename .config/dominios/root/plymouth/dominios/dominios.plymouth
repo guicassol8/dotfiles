@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Dominios
+Description=Emblema de um dos dominios do desktop, sorteado a cada boot
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/dominios
+ScriptFile=/usr/share/plymouth/themes/dominios/dominios.script

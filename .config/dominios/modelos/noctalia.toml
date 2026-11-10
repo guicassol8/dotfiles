@@ -1,0 +1,110 @@
+# Dominio {{nome}} no Noctalia 5. Gerado por `dominio construir` a partir de
+# modelos/noctalia.toml. Carregado como ~/.config/noctalia/50-dominio.toml.
+# O que nao muda entre dominios fica em ~/.config/noctalia/10-dominios.toml.
+
+[theme]
+mode           = "dark"
+source         = "custom"
+custom_palette = "dominio-{{dominio}}"
+
+[shell]
+font_family = "{{fonte.ui}}"
+corner_radius_scale = {{>noctalia-raio-escala}}
+
+# Botao do dominio: clique abre o seletor, clique direito vai para o proximo
+[widget.dominio]
+type    = "custom_button"
+glyph   = "{{glifo_shell}}"
+custom_image = "{{raiz}}/_build/{{dominio}}/logo.png"
+custom_image_colorize = false
+tooltip = "{{nome}}: Expansão de Domínio (Mod+X)"
+
+[widget.dominio.actions]
+left  = "exec ~/.config/dominios/bin/dominio menu"
+right = "exec ~/.config/dominios/bin/dominio proximo"
+
+# HUD de agentes: sessoes do Claude Code e memoria
+[widget.agentes]
+type          = "local/dominios:comando"
+command       = "~/.config/dominios/bin/agentes widget --json --alertar"
+interval      = 15
+glyph         = "robot"
+click_command = "noctalia msg panel-toggle local/dominios:agentes"
+right_command = "~/.config/dominios/bin/agentes painel"
+
+# Missoes diarias
+[widget.missoes]
+type          = "local/dominios:comando"
+command       = "~/.config/dominios/bin/missao widget --json"
+interval      = 120
+glyph         = "swords"
+click_command = "noctalia msg panel-toggle local/dominios:missoes"
+right_command = "~/.config/dominios/bin/missao painel"
+
+# Midia so aparece quando tem algo tocando
+[widget.media]
+hide_when_no_media = true
+max_length         = 200
+
+{{>noctalia-barra.toml}}
+
+# ------------------------------------------------------------ tela de bloqueio
+[lockscreen]
+wallpaper      = "{{raiz}}/papeis/{{dominio}}-desfocado.png"
+blur_intensity = 0.0
+tint_intensity = 0.15
+
+[lockscreen_widgets]
+enabled      = true
+widget_order = ["dominio_logo", "dominio_relogio", "dominio_lema", "lockscreen-login-box@eDP-1"]
+
+[lockscreen_widgets.widget.dominio_logo]
+type   = "sticker"
+output = "eDP-1"
+cx     = 960.0
+cy     = 215.0
+box_width  = 250.0
+box_height = 250.0
+
+[lockscreen_widgets.widget.dominio_logo.settings]
+image_path = "{{raiz}}/_build/{{dominio}}/logo.png"
+background = false
+
+[lockscreen_widgets.widget.dominio_relogio]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 450.0
+box_width  = 420.0
+box_height = 150.0
+
+[lockscreen_widgets.widget.dominio_relogio.settings]
+format      = "{:%H:%M}"
+color       = "primary"
+font_family = "{{fonte.destaque}}"
+background  = false
+
+[lockscreen_widgets.widget.dominio_lema]
+type   = "label"
+output = "eDP-1"
+cx     = 960.0
+cy     = 590.0
+
+[lockscreen_widgets.widget.dominio_lema.settings]
+title       = "{{bloqueio}}"
+description = "{{lema}}"
+color       = "on_surface"
+background  = false
+
+[lockscreen_widgets.widget."lockscreen-login-box@eDP-1"]
+type   = "login_box"
+output = "eDP-1"
+cx     = 960.0
+cy     = 800.0
+
+[lockscreen_widgets.widget."lockscreen-login-box@eDP-1".settings]
+layout             = "compact"
+background_color   = "surface_container"
+background_opacity = 0.85
+background_radius  = {{forma.raio}}.0
+input_radius       = {{forma.raio}}.0

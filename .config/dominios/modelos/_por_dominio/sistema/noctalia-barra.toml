@@ -1,0 +1,49 @@
+# Sistema: linha de HUD no topo, de ponta a ponta, sem curva
+[bar.default]
+position           = "top"
+thickness          = 30
+margin_edge        = 0
+margin_ends        = 0
+radius             = 0
+concave_edge_corners = false
+background_opacity = 0.80
+border             = "primary"
+border_width       = 1.0
+shadow             = false
+padding            = 12
+widget_spacing     = 12
+font_weight        = 600
+capsule            = false
+start  = ["dominio", "workspaces", "active_window"]
+center = ["clock"]
+end    = ["media", "missoes", "agentes", "tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center"]
+
+[widget.clock]
+format         = "{:%H:%M}"
+tooltip_format = "{:%A, %d de %B de %Y}"
+font_family    = "{{fonte.destaque}}"
+color          = "primary"
+
+[widget.workspaces]
+style         = "minimal"
+focused_color = "primary"
+
+[notification]
+position = "top_right"
+
+# A janela do Sistema: missoes diarias na area de trabalho, clicaveis
+[desktop_widgets]
+enabled      = true
+widget_order = ["missoes_mesa"]
+
+[desktop_widgets.widget.missoes_mesa]
+type   = "local/dominios:mesa"
+output = "eDP-1"
+cx     = 480.0
+cy     = 500.0
+
+[desktop_widgets.widget.missoes_mesa.settings]
+titulo             = "{{missoes_titulo}}"
+cor                = "primary"
+fonte              = "{{fonte.destaque}}"
+background         = false

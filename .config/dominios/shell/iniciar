@@ -1,0 +1,40 @@
+#!/bin/sh
+# Sobe o shell do desktop (chamado pelo niri na inicializacao).
+# Normal: Noctalia 5 com a config dos Dominios. Se ele cair logo de cara duas vezes
+# seguidas, sobe em MODO SEGURO: o mesmo Noctalia com a config de fabrica (sem os
+# Dominios e sem o plugin), para a sessao nao ficar sem barra, lancador e bloqueio.
+# Ate 10/11/2026 a volta era para o noctalia-shell 4 (Quickshell), mas a atualizacao
+# do sistema daquele dia tirou o shell antigo do pacote, entao ele nao existe mais.
+# Para forcar o modo seguro: touch ~/.config/dominios/shell/modo-seguro
+R="$HOME/.config/dominios/shell"
+
+if [ ! -e "$R/modo-seguro" ]; then
+    falhas=0
+    while [ "$falhas" -lt 2 ]; do
+        inicio=$(date +%s)
+        # se o dominio ativo e de apresentacao (Neutro), religa o Nao Perturbe assim que o
+        # shell responder: ele nao sobrevive a reinicio nem a boot
+        ( for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+              sleep 1
+              noctalia msg status >/dev/null 2>&1 && break
+          done
+          "$HOME/.config/dominios/bin/dominio" reafirmar >/dev/null 2>&1 ) &
+        noctalia
+        codigo=$?
+        [ "$codigo" -eq 0 ] && exit 0                    # saiu de proposito
+        [ -n "$WAYLAND_DISPLAY" ] && [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ] && exit 0   # a sessao acabou
+        if [ $(( $(date +%s) - inicio )) -ge 30 ]; then
+            falhas=0                                     # rodou bem e caiu depois: so reinicia
+        else
+            falhas=$(( falhas + 1 ))
+        fi
+        sleep 1
+    done
+fi
+
+# Modo seguro: perfil vazio so para o Noctalia (as variaveis NOCTALIA_* nao mudam o
+# ambiente dos apps abertos por ele). Fica em memoria e some no logout.
+S="${XDG_RUNTIME_DIR:-/tmp}/dominios-shell-seguro"
+mkdir -p "$S/config" "$S/state" "$S/data"
+command -v notify-send >/dev/null 2>&1 && (sleep 6; notify-send -u critical "Domínios" "O Noctalia não subiu com a config dos Domínios. Estou em modo seguro (config de fábrica). Roda: noctalia config validate") &
+NOCTALIA_CONFIG_HOME="$S/config" NOCTALIA_STATE_HOME="$S/state" NOCTALIA_DATA_HOME="$S/data" exec noctalia

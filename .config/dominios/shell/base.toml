@@ -1,0 +1,91 @@
+# Base do Noctalia 5 para os Dominios: o que NAO muda de um dominio para outro.
+# Instalado como ~/.config/noctalia/10-dominios.toml por shell/instalar.
+# O que muda (paleta, barra, tela de bloqueio) vem de 50-dominio.toml, que e um
+# link para ~/.config/dominios/atual/noctalia.toml.
+#
+# Atencao: o que tu mudar pela janela de Configuracoes vai para
+# ~/.local/state/noctalia/settings.toml e passa a valer em todos os dominios,
+# por cima destes arquivos. Para voltar ao declarado aqui, apaga aquele arquivo.
+
+[shell]
+setup_wizard_enabled = false
+telemetry_enabled    = false
+polkit_agent         = true     # o v4 usava o plugin polkit-agent; aqui e nativo
+clipboard_enabled    = true
+avatar_path          = "~/.face"
+
+# "/dominio" no lancador abre o seletor de dominios
+[shell.launcher.dmenu.entry.dominio]
+command = "printf '%s\\n' sistema grimorio setor2814 maldicao neutro"
+exec    = "~/.config/dominios/bin/dominio {selection}"
+prefix  = "dominio"
+glyph   = "palette"
+
+[plugins]
+enabled     = ["local/dominios"]
+auto_update = "none"            # sem git pull de plugins em segundo plano
+
+# Catalogos de plugins da internet desligados (o shell clonava os dois na
+# inicializacao). Para navegar plugins pela janela de Configuracoes, troca para true.
+[[plugins.source]]
+name     = "official"
+kind     = "git"
+location = "https://github.com/noctalia-dev/official-plugins"
+enabled  = false
+
+[[plugins.source]]
+name     = "community"
+kind     = "git"
+location = "https://github.com/noctalia-dev/community-plugins"
+enabled  = false
+
+[theme.templates]
+enable_builtin_templates   = false   # kitty, niri, GTK etc. sao gerados pelo `dominio`
+enable_community_templates = false
+
+[wallpaper]
+enabled             = true
+directory           = "~/Pictures/Wallpapers"
+fill_mode           = "crop"
+transition          = ["disc", "wipe", "stripes"]
+transition_duration = 900
+
+[wallpaper.automation]
+enabled = false
+
+[audio]
+enable_sounds = false           # os sons sao os dos dominios (`dominio som on|off`)
+
+[weather]
+enabled = true
+
+[location]
+address     = "Porto Alegre"
+auto_locate = false
+
+[osd]
+position = "top_center"
+
+[notification]
+layer       = "top"
+max_visible = 4
+
+[lockscreen]
+enabled             = true
+lock_before_suspend = true
+fingerprint         = false
+transition          = ["fade"]
+transition_duration = 500
+
+# Ocioso: tudo desligado, como estava no shell antigo
+[idle.behavior.lock]
+enabled = false
+
+[idle.behavior.screen-off]
+enabled = false
+
+[idle.behavior.lock-and-suspend]
+enabled = false
+
+[hooks]
+colors_changed = ["noctalia msg plugin local/dominios:comando all refresh"]

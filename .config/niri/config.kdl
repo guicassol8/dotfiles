@@ -17,3 +17,9 @@ window-rule {
     match app-id="stw-32-cubeide" // ou o nome correto da classe que o niri reconhecer
     open-floating true
 }
+
+// >>> dominios >>>
+include "../dominios/niri-atalhos.kdl"
+include "../dominios/niri-shell.kdl"
+include "../dominios/atual/niri.kdl"
+// <<< dominios <<<

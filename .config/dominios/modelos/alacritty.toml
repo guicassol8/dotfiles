@@ -1,0 +1,41 @@
+# Dominio {{nome}}. Gerado por `dominio construir` (terminal reserva).
+[window]
+opacity = {{forma.opacidade_terminal}}
+
+[font]
+size = {{fonte.mono_tamanho}}
+
+[font.normal]
+family = "{{fonte.mono}}"
+
+[colors.primary]
+background = "{{cor.fundo}}"
+foreground = "{{cor.texto}}"
+
+[colors.cursor]
+text = "{{cor.fundo}}"
+cursor = "{{cor.primaria}}"
+
+[colors.selection]
+text = "{{cor.sobre_primaria}}"
+background = "{{cor.primaria}}"
+
+[colors.normal]
+black = "{{ansi.preto}}"
+red = "{{ansi.vermelho}}"
+green = "{{ansi.verde}}"
+yellow = "{{ansi.amarelo}}"
+blue = "{{ansi.azul}}"
+magenta = "{{ansi.magenta}}"
+cyan = "{{ansi.ciano}}"
+white = "{{ansi.branco}}"
+
+[colors.bright]
+black = "{{ansi.preto_claro}}"
+red = "{{ansi.vermelho_claro}}"
+green = "{{ansi.verde_claro}}"
+yellow = "{{ansi.amarelo_claro}}"
+blue = "{{ansi.azul_claro}}"
+magenta = "{{ansi.magenta_claro}}"
+cyan = "{{ansi.ciano_claro}}"
+white = "{{ansi.branco_claro}}"

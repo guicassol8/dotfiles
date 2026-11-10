@@ -1,0 +1,104 @@
+# Plugin dos Dominios para o Noctalia 5 (Luau). Instalado por shell/instalar em
+# ~/.local/share/noctalia/plugins/dominios/ e ligado em [plugins].enabled.
+id          = "local/dominios"
+name        = "Domínios"
+version     = "1.0.0"
+plugin_api  = 43
+author      = "local"
+description = "Widgets dos Domínios: comando na barra, missões diárias, HUD de agentes e som de notificação"
+
+# Widget de barra que mostra a saida de um comando (texto ou JSON).
+[[widget]]
+id    = "comando"
+entry = "comando.luau"
+
+  [[widget.setting]]
+  key       = "command"
+  type      = "string"
+  label_key = "settings.command.label"
+  description_key = "settings.command.description"
+  default   = ""
+
+  [[widget.setting]]
+  key       = "interval"
+  type      = "int"
+  label_key = "settings.interval.label"
+  default   = 10
+  min       = 1
+  max       = 86400
+
+  [[widget.setting]]
+  key       = "glyph"
+  type      = "glyph"
+  label_key = "settings.glyph.label"
+  default   = ""
+
+  [[widget.setting]]
+  key       = "text_color"
+  type      = "color"
+  label_key = "settings.text_color.label"
+  default   = "on_surface"
+
+  [[widget.setting]]
+  key       = "click_command"
+  type      = "string"
+  label_key = "settings.click_command.label"
+  default   = ""
+
+  [[widget.setting]]
+  key       = "right_command"
+  type      = "string"
+  label_key = "settings.right_command.label"
+  default   = ""
+
+  [[widget.setting]]
+  key       = "hide_when_empty"
+  type      = "bool"
+  label_key = "settings.hide_when_empty.label"
+  default   = false
+
+# Painel nativo das missoes diarias (clique no widget de missoes ou Mod+M).
+[[panel]]
+id        = "missoes"
+entry     = "missoes.luau"
+width     = 440
+height    = 560
+placement = "floating"
+position  = "center"
+
+# Painel nativo do HUD de agentes (clique no widget de agentes ou Mod+A).
+[[panel]]
+id        = "agentes"
+entry     = "agentes.luau"
+width     = 560
+height    = 480
+placement = "floating"
+position  = "center"
+
+# Janela de missoes na area de trabalho (a "janela do Sistema").
+[[desktop_widget]]
+id    = "mesa"
+entry = "missoes-mesa.luau"
+
+  [[desktop_widget.setting]]
+  key       = "titulo"
+  type      = "string"
+  label_key = "settings.titulo.label"
+  default   = "MISSÃO DIÁRIA"
+
+  [[desktop_widget.setting]]
+  key       = "cor"
+  type      = "color"
+  label_key = "settings.cor.label"
+  default   = "primary"
+
+  [[desktop_widget.setting]]
+  key       = "fonte"
+  type      = "string"
+  label_key = "settings.fonte.label"
+  default   = ""
+
+# Servico sem interface: toca o som de notificacao do dominio ativo.
+[[service]]
+id    = "som"
+entry = "som.luau"

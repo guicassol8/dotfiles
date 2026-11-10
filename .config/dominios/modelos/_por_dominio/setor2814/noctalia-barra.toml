@@ -1,0 +1,44 @@
+# Setor 2814: pilula de luz embaixo, cada grupo numa capsula
+[bar.default]
+position           = "bottom"
+thickness          = 40
+margin_edge        = 10
+margin_ends        = 200
+radius             = {{forma.raio}}
+concave_edge_corners = false
+background_opacity = 0.84
+border             = "primary"
+border_width       = 1.5
+shadow             = true
+padding            = 16
+widget_spacing     = 8
+font_weight        = 600
+capsule            = true
+capsule_fill       = "surface_container"
+start  = ["dominio", "workspaces", "active_window"]
+center = ["clock"]
+end    = ["media", "missoes", "agentes", "tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center"]
+
+[widget.clock]
+format         = "{:%H:%M}"
+tooltip_format = "{:%A, %d de %B de %Y}"
+color          = "primary"
+
+[widget.workspaces]
+style         = "regular"
+focused_color = "primary"
+
+# A carga do anel
+[widget.battery]
+display_mode  = "graphic"
+show_label    = true
+label_content = "percent"
+color         = "primary"
+warning_color = "tertiary"
+
+[notification]
+position = "top_right"
+
+[desktop_widgets]
+enabled      = true
+widget_order = []

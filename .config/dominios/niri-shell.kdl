@@ -1,0 +1,30 @@
+// Atalhos que falam com o shell do desktop, nas mesmas teclas de sempre.
+// Passam por shell/ipc, que funciona no Noctalia 5 e no shell antigo (Quickshell).
+// Incluido no fim de ~/.config/niri/config.kdl; sobrescreve os de cfg/keybinds.kdl.
+binds {
+    Mod+CTRL+Return       hotkey-overlay-title="Lançador de apps" { spawn-sh "~/.config/dominios/shell/ipc lancador"; }
+    Mod+D                 hotkey-overlay-title="Lançador de apps" { spawn-sh "~/.config/dominios/shell/ipc lancador"; }
+    Mod+V                 hotkey-overlay-title="Área de transferência" { spawn-sh "~/.config/dominios/shell/ipc area"; }
+    Mod+ALT+L             hotkey-overlay-title="Bloquear a tela" { spawn-sh "~/.config/dominios/shell/ipc bloquear"; }
+    Mod+Shift+L           hotkey-overlay-title="Bloquear a tela" { spawn-sh "~/.config/dominios/shell/ipc bloquear"; }
+    Mod+Shift+Q           hotkey-overlay-title="Menu de sessão" { spawn-sh "~/.config/dominios/shell/ipc sessao"; }
+
+    XF86AudioRaiseVolume  allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc vol+"; }
+    XF86AudioLowerVolume  allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc vol-"; }
+    XF86AudioMute         allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc mudo"; }
+    XF86AudioMicMute      allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc mic"; }
+    XF86AudioNext         allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc proxima"; }
+    XF86AudioPrev         allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc anterior"; }
+    XF86AudioPlay         allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc tocar"; }
+    XF86AudioPause        allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc tocar"; }
+    XF86MonBrightnessUp   allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc brilho+"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc brilho-"; }
+}
+
+// Janela de Configuracoes do Noctalia 5
+window-rule {
+    match app-id="^dev\\.noctalia\\.Noctalia$"
+    open-floating true
+    default-column-width { fixed 1080; }
+    default-window-height { fixed 860; }
+}

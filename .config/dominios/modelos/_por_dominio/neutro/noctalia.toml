@@ -1,0 +1,106 @@
+# Dominio {{nome}} (modo apresentacao) no Noctalia 5. Gerado por `dominio construir` a
+# partir de modelos/_por_dominio/neutro/noctalia.toml, que substitui o modelo geral:
+# aqui nao tem botao de dominio, missoes, agentes, midia nem sino de notificacoes.
+
+[theme]
+mode           = "dark"
+source         = "custom"
+custom_palette = "dominio-{{dominio}}"
+
+[shell]
+font_family = "{{fonte.ui}}"
+corner_radius_scale = 1.0
+
+# Barra comum: areas de trabalho e janela a esquerda, data e hora no meio, sistema a direita
+[bar.default]
+position           = "top"
+thickness          = 32
+margin_edge        = 0
+margin_ends        = 0
+radius             = 0
+concave_edge_corners = false
+background_opacity = 1.0
+border_width       = 0.0
+shadow             = false
+padding            = 12
+widget_spacing     = 12
+font_weight        = 500
+capsule            = false
+start  = ["workspaces", "active_window"]
+center = ["clock"]
+end    = ["privacy", "tray", "network", "bluetooth", "volume", "battery", "control-center"]
+
+[widget.clock]
+format         = "{:%a %d %b   %H:%M}"
+tooltip_format = "{:%A, %d de %B de %Y}"
+color          = "on_surface"
+
+[widget.workspaces]
+style         = "regular"
+focused_color = "primary"
+
+[widget.active_window]
+max_length = 320
+
+# So aparece quando microfone, camera ou tela estao sendo capturados (chamada, gravacao)
+[widget.privacy]
+type          = "privacy"
+hide_inactive = true
+
+[notification]
+position = "top_right"
+
+[desktop_widgets]
+enabled      = true
+widget_order = []
+
+# ------------------------------------------------------------ tela de bloqueio
+[lockscreen]
+wallpaper      = "{{raiz}}/papeis/{{dominio}}-desfocado.png"
+blur_intensity = 0.0
+tint_intensity = 0.15
+
+[lockscreen_widgets]
+enabled      = true
+widget_order = ["dominio_relogio", "dominio_data", "lockscreen-login-box@eDP-1"]
+
+[lockscreen_widgets.widget.dominio_relogio]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 360.0
+box_width  = 420.0
+box_height = 150.0
+
+[lockscreen_widgets.widget.dominio_relogio.settings]
+format      = "{:%H:%M}"
+color       = "on_surface"
+font_family = "{{fonte.destaque}}"
+background  = false
+
+[lockscreen_widgets.widget.dominio_data]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 480.0
+box_width  = 620.0
+box_height = 50.0
+
+[lockscreen_widgets.widget.dominio_data.settings]
+format      = "{:%A, %d de %B}"
+color       = "on_surface_variant"
+font_family = "{{fonte.ui}}"
+background  = false
+
+[lockscreen_widgets.widget."lockscreen-login-box@eDP-1"]
+type   = "login_box"
+output = "eDP-1"
+cx     = 960.0
+cy     = 800.0
+
+[lockscreen_widgets.widget."lockscreen-login-box@eDP-1".settings]
+layout             = "compact"
+background_color   = "surface_container"
+background_opacity = 0.85
+background_radius  = {{forma.raio}}.0
+input_radius       = {{forma.raio}}.0

@@ -1,0 +1,106 @@
+/* Dominio {{nome}} para Spotify (Spicetify). Gerado por `dominio construir` de modelos/spicetify-user.css.
+   As cores base vem do color.ini (variaveis --spice-*). Aqui: fontes, cantos e os
+   tokens de cor do proprio Spotify (encore) amarrados ao dominio. */
+
+/* fontes e cantos */
+:root,
+.encore-dark-theme,
+.encore-layout-themes {
+    --encore-body-font-stack: "{{fonte.ui}}", var(--fallback-fonts, sans-serif);
+    --encore-title-font-stack: "{{fonte.destaque}}", "{{fonte.ui}}", var(--fallback-fonts, sans-serif);
+    --encore-variable-font-stack: "{{fonte.destaque}}", "{{fonte.ui}}", var(--fallback-fonts, sans-serif);
+    --font-family: "{{fonte.ui}}", var(--fallback-fonts, sans-serif);
+
+    --encore-corner-radius-smaller-2: {{forma.raio|vezes:0.1}}px;
+    --encore-corner-radius-smaller: {{forma.raio|vezes:0.15}}px;
+    --encore-corner-radius-base: {{forma.raio|vezes:0.3}}px;
+    --encore-corner-radius-larger: {{forma.raio|vezes:0.45}}px;
+    --encore-corner-radius-larger-2: {{forma.raio|vezes:0.6}}px;
+    --encore-corner-radius-larger-3: {{forma.raio|vezes:1.15}}px;
+}
+
+body {
+    font-family: var(--encore-body-font-stack);
+}
+
+/* tokens de cor do Spotify, no conjunto base (fundo escuro, texto claro) */
+.encore-dark-theme,
+.encore-dark-theme .encore-base-set {
+    --text-base: var(--spice-text);
+    --text-subdued: var(--spice-subtext);
+    --text-bright-accent: var(--spice-button);
+    --text-negative: {{cor.erro}};
+    --text-warning: {{cor.aviso}};
+    --text-positive: {{cor.ok}};
+    --text-announcement: {{ansi.azul_claro}};
+    --essential-base: var(--spice-text);
+    --essential-subdued: {{cor.texto_suave|mistura:cor.fundo:0.3}};
+    --essential-bright-accent: var(--spice-button);
+    --essential-negative: {{cor.erro}};
+    --essential-warning: {{cor.aviso}};
+    --essential-positive: {{cor.ok}};
+    --essential-announcement: {{ansi.azul}};
+    --decorative-base: var(--spice-text);
+    --decorative-subdued: {{cor.contorno}};
+    --background-base: var(--spice-main);
+    --background-highlight: var(--spice-highlight);
+    --background-press: {{cor.fundo|escuro:0.3}};
+    --background-elevated-base: var(--spice-main-elevated);
+    --background-elevated-highlight: var(--spice-highlight-elevated);
+    --background-elevated-press: {{cor.superficie}};
+    --background-tinted-base: {{cor.texto|alfa:0.07}};
+    --background-tinted-highlight: {{cor.texto|alfa:0.11}};
+    --background-tinted-press: {{cor.texto|alfa:0.04}};
+}
+
+/* conjunto de destaque (botao de play e afins): fundo na primaria, texto escuro por cima */
+.encore-dark-theme .encore-bright-accent-set {
+    --background-base: var(--spice-button);
+    --background-highlight: var(--spice-button-active);
+    --background-press: {{cor.primaria|escuro:0.15}};
+    --text-base: {{cor.sobre_primaria}};
+    --text-subdued: {{cor.sobre_primaria}};
+    --essential-base: {{cor.sobre_primaria}};
+}
+
+/* as tres areas: biblioteca e player na superficie, conteudo no fundo */
+.Root__nav-bar,
+.Root__right-sidebar,
+.Root__now-playing-bar {
+    --background-base: var(--spice-sidebar);
+}
+
+/* barra de progresso e volume */
+.playback-bar,
+.volume-bar {
+    --fg-color: var(--spice-text);
+    --is-active-fg-color: var(--spice-button);
+    --bg-color: var(--spice-button-disabled);
+}
+
+/* faixa tocando agora */
+.main-trackList-trackListRow.main-trackList-active .main-trackList-rowTitle,
+.main-trackList-trackListRow.main-trackList-active .main-trackList-rowMarker {
+    color: var(--spice-button);
+}
+
+/* selecao e barras de rolagem */
+::selection {
+    background: {{cor.primaria|alfa:0.35}};
+    color: {{ansi.branco_claro}};
+}
+
+::-webkit-scrollbar-thumb,
+.os-scrollbar-handle {
+    background-color: {{cor.contorno}} !important;
+}
+
+::-webkit-scrollbar-thumb:hover,
+.os-scrollbar-handle:hover {
+    background-color: {{cor.contorno|claro:0.18}} !important;
+}
+
+/* campos de busca */
+input::placeholder {
+    color: {{cor.texto_suave|alfa:0.75}};
+}

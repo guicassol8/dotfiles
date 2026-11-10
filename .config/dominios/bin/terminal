@@ -1,0 +1,7 @@
+#!/bin/sh
+# Terminal principal: kitty em instancia unica (todas as janelas num processo so,
+# o que economiza RAM). Sem kitty instalado, cai no alacritty.
+if command -v kitty >/dev/null 2>&1; then
+    exec kitty --single-instance "$@"
+fi
+exec alacritty "$@"

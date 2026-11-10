@@ -1,0 +1,43 @@
+# Maldicao: lamina vertical na esquerda, canto vivo, so icones
+[bar.default]
+position           = "left"
+thickness          = 46
+margin_edge        = 0
+margin_ends        = 0
+radius             = 0
+concave_edge_corners = false
+background_opacity = 1.0
+border             = "primary"
+border_width       = 2.0
+shadow             = false
+padding            = 12
+widget_spacing     = 12
+font_weight        = 700
+capsule            = false
+start  = ["dominio", "workspaces"]
+center = ["clock"]
+end    = ["missoes", "agentes", "tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center"]
+
+[widget.clock]
+format          = "{:%H:%M}"
+vertical_format = "{:%H}\n{:%M}"
+tooltip_format  = "{:%A, %d de %B de %Y}"
+font_family     = "{{fonte.destaque}}"
+color           = "primary"
+
+[widget.workspaces]
+style         = "minimal"
+focused_color = "primary"
+
+[widget.network]
+show_label = false
+
+[widget.battery]
+show_label = false
+
+[notification]
+position = "top_right"
+
+[desktop_widgets]
+enabled      = true
+widget_order = []

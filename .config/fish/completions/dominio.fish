@@ -1,0 +1,15 @@
+# Completar o comando `dominio` (Dominios)
+complete -c dominio -f
+complete -c dominio -n __fish_use_subcommand -a "sistema grimorio setor2814 maldicao" -d "ativar este domínio"
+complete -c dominio -n __fish_use_subcommand -a neutro -d "domínio comum, pra apresentar"
+complete -c dominio -n __fish_use_subcommand -a apresentar -d "liga ou desliga o modo apresentação"
+complete -c dominio -n __fish_use_subcommand -a proximo -d "próximo domínio"
+complete -c dominio -n __fish_use_subcommand -a anterior -d "domínio anterior"
+complete -c dominio -n __fish_use_subcommand -a menu -d "seletor gráfico"
+complete -c dominio -n __fish_use_subcommand -a construir -d "regenerar _build a partir do dominios.toml"
+complete -c dominio -n __fish_use_subcommand -a arte -d "regenerar papéis de parede e sons"
+complete -c dominio -n __fish_use_subcommand -a estado -d "JSON do domínio ativo"
+complete -c dominio -n __fish_use_subcommand -a som -d "ligar ou desligar os sons"
+complete -c dominio -n "__fish_seen_subcommand_from som" -a "on off"
+complete -c dominio -n __fish_use_subcommand -a instalar -d "ligar os pontos (uma vez)"
+complete -c dominio -n __fish_use_subcommand -a desinstalar -d "desfazer os pontos"

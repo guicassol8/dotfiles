@@ -1,0 +1,20 @@
+# Neutro: prompt comum de duas linhas, pasta e git, sem simbolo proprio
+format = """$directory$git_branch$git_status$jobs$nodejs$python$rust$cmd_duration
+$character"""
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+read_only = " 󰌾"
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold primaria"
+
+[git_branch]
+symbol = " "
+format = "[$symbol$branch]($style) "
+style = "suave"
+
+[character]
+success_symbol = "[❯](ok)"
+error_symbol = "[❯](erro)"
+vimcmd_symbol = "[❮](terciaria)"

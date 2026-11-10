@@ -1,0 +1,61 @@
+# Dominio {{nome}}. Gerado por `dominio construir` a partir de modelos/starship.toml.
+"$schema" = 'https://starship.rs/config-schema.json'
+add_newline = true
+command_timeout = 600
+palette = "dominio"
+
+{{>starship-formato.toml}}
+
+[palettes.dominio]
+fundo = "{{cor.fundo}}"
+superficie = "{{cor.superficie2}}"
+contorno = "{{cor.contorno}}"
+texto = "{{cor.texto}}"
+suave = "{{cor.texto_suave}}"
+primaria = "{{cor.primaria}}"
+sobre_primaria = "{{cor.sobre_primaria}}"
+secundaria = "{{cor.secundaria}}"
+terciaria = "{{cor.terciaria}}"
+erro = "{{cor.erro}}"
+aviso = "{{cor.aviso}}"
+ok = "{{cor.ok}}"
+
+
+[git_status]
+format = '([$all_status$ahead_behind]($style) )'
+style = "aviso"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕"
+conflicted = "✖"
+untracked = "?"
+modified = "!"
+staged = "+"
+stashed = ""
+
+[cmd_duration]
+min_time = 3000
+format = "[ $duration]($style) "
+style = "suave"
+
+[jobs]
+symbol = "󰜎 "
+style = "terciaria"
+
+[nodejs]
+format = "[ $version]($style) "
+style = "suave"
+detect_files = ["package.json"]
+detect_extensions = []
+
+[python]
+format = "[ $version]($style) "
+style = "suave"
+detect_extensions = []
+
+[rust]
+format = "[ $version]($style) "
+style = "suave"
+
+[package]
+disabled = true

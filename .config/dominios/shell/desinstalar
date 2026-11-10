@@ -1,0 +1,22 @@
+#!/bin/sh
+# Desfaz o que shell/instalar fez (chamado por `dominio desinstalar`).
+N="$HOME/.config/noctalia"
+A="$HOME/.config/niri/cfg/autostart.kdl"
+[ -f "$A.antes-dominios" ] && mv -f "$A.antes-dominios" "$A"
+for f in "$N/10-dominios.toml" "$N/50-dominio.toml" "$N"/palettes/dominio-*.json; do
+    [ -L "$f" ] && unlink "$f"
+done
+# A linha antiga subia o noctalia-shell 4 (Quickshell). A atualizacao do sistema de
+# 10/11/2026 tirou o shell antigo do pacote: se ele nao existe mais, a linha passa a
+# subir o Noctalia 5 de fabrica, senao o proximo login ficaria sem barra.
+if [ -f "$A" ] && [ ! -f /etc/xdg/quickshell/noctalia-shell/shell.qml ] \
+        && [ ! -f "$HOME/.config/quickshell/noctalia-shell/shell.qml" ] \
+        && command -v noctalia >/dev/null 2>&1 \
+        && grep -q '^spawn-sh-at-startup "qs -c noctalia-shell"' "$A"; then
+    sed -i 's|^spawn-sh-at-startup "qs -c noctalia-shell"|spawn-sh-at-startup "noctalia"|' "$A"
+    echo "Noctalia 5 desligado dos Dominios. O shell antigo (Quickshell) nao existe mais no sistema,"
+    echo "entao no proximo login sobe o Noctalia 5 com a config de fabrica."
+else
+    echo "Noctalia 5 desligado dos Dominios. No proximo login sobe o shell antigo (qs -c noctalia-shell)."
+fi
+echo "O plugin ficou em ~/.local/share/noctalia/plugins/dominios (inofensivo sem a config)."

@@ -1,0 +1,580 @@
+#!/usr/bin/env python3
+"""dominio: troca o tema inteiro do desktop (Expansao de Dominio).
+
+  dominio                    mostra o dominio ativo e a lista
+  dominio expandir <nome>    ativa um dominio (ou so: dominio <nome>)
+  dominio proximo|anterior   percorre a lista
+  dominio apresentar         liga ou desliga o modo apresentacao (dominio Neutro)
+  dominio menu               seletor grafico
+  dominio construir [nome]   regenera _build/ a partir de dominios.toml e modelos/
+  dominio arte [nome]        regenera papeis de parede, logos e sons
+  dominio instalar           liga os pontos uma vez (includes e links)
+  dominio desinstalar        desfaz os pontos (as configs antigas ficam em ~/.rice-backup)
+  dominio estado             JSON do dominio ativo (para widgets e scripts)
+  dominio som [on|off]       liga ou desliga os sons de interface
+
+Fonte unica: ~/.config/dominios/dominios.toml. Nada aqui tem cor literal.
+"""
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+CASA = Path.home()
+RAIZ = Path(__file__).resolve().parent.parent
+BUILD = RAIZ / "_build"
+ATUAL = RAIZ / "atual"
+ESTADO = CASA / ".local/state/dominios"
+CFG = Path(os.environ.get("XDG_CONFIG_HOME", CASA / ".config"))
+TOKENS = tomllib.loads((RAIZ / "dominios.toml").read_text())
+ORDEM = TOKENS["ordem"]["lista"]                       # ciclo do proximo/anterior
+TODOS = ORDEM + TOKENS["ordem"].get("extras", [])       # ciclo + fora do ciclo (Neutro)
+MODO_PADRAO = {"apresentacao": False, "saudacao": True}
+INI, FIM = ">>> dominios >>>", "<<< dominios <<<"
+
+
+def aviso(msg):
+    print(f"dominio: {msg}", file=sys.stderr)
+
+
+def roda(cmd, **kw):
+    """Executa sem derrubar a troca se a ferramenta faltar ou falhar."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=kw.pop("timeout", 8), **kw)
+    except (OSError, subprocess.SubprocessError) as e:
+        aviso(f"{cmd[0]}: {e}")
+        return None
+
+
+def solta(cmd):
+    """Dispara em segundo plano, desacoplado."""
+    try:
+        subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError as e:
+        aviso(f"{cmd[0]}: {e}")
+
+
+def tem(prog):
+    return shutil.which(prog) is not None
+
+
+def ativo():
+    try:
+        nome = os.readlink(ATUAL).rstrip("/").split("/")[-1]
+        return nome if nome in TODOS else None
+    except OSError:
+        return None
+
+
+def modo(nome):
+    """[<dominio>.modo] do dominios.toml, ja com os padroes."""
+    return {**MODO_PADRAO, **TOKENS.get(nome, {}).get("modo", {})}
+
+
+def preferencias():
+    try:
+        return json.loads((ESTADO / "preferencias.json").read_text())
+    except (OSError, ValueError):
+        return {"som": True}
+
+
+def grava_preferencias(p):
+    ESTADO.mkdir(parents=True, exist_ok=True)
+    (ESTADO / "preferencias.json").write_text(json.dumps(p, indent=2) + "\n")
+
+
+# ------------------------------------------------------------------ som
+def musica_tocando():
+    if tem("playerctl"):
+        r = roda(["playerctl", "-a", "status"], timeout=2)
+        if r and "Playing" in r.stdout:
+            return True
+    r = roda(["pactl", "list", "short", "sink-inputs"], timeout=2)
+    return bool(r and r.stdout.strip())
+
+
+def toca(evento, forcar=False):
+    """Toca sons/<evento>.wav do dominio ativo. Calado se houver musica tocando."""
+    if not preferencias().get("som", True) and not forcar:
+        return
+    arq = ATUAL / "sons" / f"{evento}.wav"
+    if not arq.exists() or not tem("pw-play"):
+        return
+    if not forcar and musica_tocando():
+        return
+    solta(["pw-play", "--volume", "0.55", str(arq)])
+
+
+# ------------------------------------------------------------ aplicadores
+def aplica_niri(_):
+    if os.environ.get("NIRI_SOCKET") or tem("niri"):
+        roda(["niri", "msg", "action", "load-config-file"])
+
+
+def aplica_terminais(_):
+    r = roda(["pgrep", "-x", "kitty"])
+    for pid in (r.stdout.split() if r else []):
+        try:
+            os.kill(int(pid), signal.SIGUSR1)   # kitty recarrega a config
+        except (OSError, ValueError):
+            pass
+    ala = CFG / "alacritty/alacritty.toml"
+    if ala.exists():
+        os.utime(ala)                           # alacritty reimporta o tema
+    roda(["pkill", "-USR2", "-x", "cava"])      # cava recarrega as cores
+
+
+def aplica_gtk(_):
+    # GTK3 so rele o gtk.css do usuario quando o tema muda: troca e volta
+    chave = ["org.gnome.desktop.interface", "gtk-theme"]
+    r = roda(["gsettings", "get", *chave])
+    if r and r.returncode == 0:
+        tema = r.stdout.strip().strip("'")
+        outro = "adw-gtk3" if tema != "adw-gtk3" else "adw-gtk3-dark"
+        roda(["gsettings", "set", *chave, outro])
+        roda(["gsettings", "set", *chave, tema])
+
+
+def _jsonc_define(txt, chave, valor):
+    """Define uma chave de 1o nivel num JSON com comentarios (settings.json do VS Code).
+
+    Troca so o valor, sem reformatar o resto; se a chave nao existe, entra no
+    comeco do objeto. Ignora comentarios e chaves aninhadas. Devolve None se o
+    arquivo nao for um objeto ou se o valor atual for objeto/lista.
+    """
+    novo, n = json.dumps(valor, ensure_ascii=False), len(txt)
+
+    def pula(j):                                # espacos e comentarios
+        while j < n:
+            if txt[j].isspace():
+                j += 1
+            elif txt.startswith("//", j):
+                j = txt.find("\n", j)
+                j = n if j < 0 else j
+            elif txt.startswith("/*", j):
+                j = txt.find("*/", j + 2)
+                j = n if j < 0 else j + 2
+            else:
+                break
+        return j
+
+    def fecha(j):                               # j na aspa que abre; devolve o indice apos a que fecha
+        j += 1
+        while j < n and txt[j] != '"':
+            j += 2 if txt[j] == "\\" else 1
+        return min(j + 1, n)
+
+    i, nivel, abre = pula(0), 0, None
+    nl = "\r\n" if "\r\n" in txt else "\n"      # respeita o fim de linha do arquivo
+    if i >= n:                                  # vazio ou so comentarios
+        return txt + (nl if txt and not txt.endswith("\n") else "") + "{" + nl + "    " + json.dumps(chave) + ": " + novo + nl + "}" + nl
+    if txt[i] != "{":
+        return None
+    while i < n:
+        c = txt[i]
+        if c == '"':
+            f = fecha(i)
+            d = pula(f)
+            if nivel == 1 and d < n and txt[d] == ":" and txt[i + 1:f - 1] == chave:
+                v = pula(d + 1)
+                if v < n and txt[v] == '"':
+                    return txt[:v] + novo + txt[fecha(v):]
+                m = re.compile(r"[^\s,}\]/{\[]+").match(txt, v)
+                return txt[:v] + novo + txt[m.end():] if m else None
+            i = f
+        else:
+            if c in "{[":
+                nivel += 1
+                abre = i + 1 if abre is None else abre
+            elif c in "}]":
+                nivel -= 1
+            i += 1
+        i = pula(i)
+    vazio = txt[pula(abre):pula(abre) + 1] == "}"
+    return txt[:abre] + nl + "    " + json.dumps(chave) + ": " + novo + (nl if vazio else ",") + txt[abre:]
+
+
+def aplica_vscode(nome):
+    alvo = CFG / "Code/User/settings.json"
+    if not alvo.exists() or not any((CASA / ".vscode/extensions").glob("dominios.dominios-tema-*")):
+        return
+    rotulo = TOKENS[nome].get("vscode_tema") or f"Domínio: {TOKENS[nome]['nome']}"
+    with open(alvo, encoding="utf-8", newline="") as f:     # newline="": nao converte CRLF em LF
+        txt = f.read()
+    novo = _jsonc_define(txt, "workbench.colorTheme", rotulo)
+    if novo is None:
+        aviso(f"{alvo}: nao parece um settings.json; tema do VS Code nao aplicado")
+    elif novo != txt:
+        with open(alvo, "w", encoding="utf-8", newline="") as f:
+            f.write(novo)
+
+
+def _copia(origem, destino):
+    if origem.exists() and destino.parent.is_dir():
+        shutil.copyfile(origem.resolve(), destino)
+        return True
+    return False
+
+
+def aplica_apps(nome):
+    b = BUILD / nome
+    # Discord (Vesktop/Vencord recarrega temas locais quando o arquivo muda)
+    for pasta in (CFG / "vesktop/themes", CFG / "Vencord/themes"):
+        _copia(b / "discord.css", pasta / "dominio.theme.css")
+    # Spotify (Spicetify): `refresh` regrava so o CSS do tema dentro do app (colors.css
+    # e user.css), leva milissegundos e nunca abre nem reinicia o Spotify (-n). Com ele
+    # fechado vale na proxima abertura; aberto, tambem (ou no recarregar). O `apply`
+    # completo copia o app inteiro (meio segundo) e, em trocas seguidas, dois poderiam
+    # se atropelar e deixar a cor do dominio anterior.
+    tema = CFG / "spicetify/Themes/Dominio"
+    if _copia(b / "spicetify-color.ini", tema / "color.ini"):
+        _copia(b / "spicetify-user.css", tema / "user.css")
+        spt = shutil.which("spicetify") or str(CASA / ".spicetify/spicetify")
+        if Path(spt).exists():
+            solta([spt, "refresh", "-n", "-q"])
+    # Chrome: a extensao da nova aba le dominio.json e papel.png da propria pasta
+    ext = RAIZ / "chrome-nova-aba"
+    if ext.is_dir():
+        _copia(b / "tokens.json", ext / "dominio.json")
+        _copia(b / "papel.png", ext / "papel.png")
+
+
+def aplica_shell(nome):
+    """Barra, paleta e papel de parede (Noctalia). Preenchido por shell/aplicar."""
+    gancho = RAIZ / "shell/aplicar"
+    if gancho.exists() and os.access(gancho, os.X_OK):
+        roda([str(gancho), nome], timeout=20)
+
+
+def aplica_ganchos(nome):
+    """Roda cada executavel de ganchos/expandir.d/ com o nome do dominio (ordem alfabetica)."""
+    pasta = RAIZ / "ganchos/expandir.d"
+    if pasta.is_dir():
+        for g in sorted(pasta.iterdir()):
+            if g.is_file() and os.access(g, os.X_OK):
+                roda([str(g), nome], timeout=20)
+
+
+APLICADORES = (aplica_niri, aplica_terminais, aplica_shell, aplica_gtk, aplica_vscode, aplica_apps, aplica_ganchos)
+
+
+# ------------------------------------------------------- modo apresentacao
+# Um dominio com [modo] apresentacao = true (o Neutro) liga o Nao Perturbe e segura a
+# tela acordada enquanto esta ativo. O estado de antes fica guardado para a volta.
+APRESENTACAO = ESTADO / "apresentacao.json"
+
+
+def _noctalia(*args):
+    r = roda(["noctalia", "msg", *args], timeout=4) if tem("noctalia") else None
+    return r.stdout.strip() if r and r.returncode == 0 else None
+
+
+def _le_apresentacao():
+    try:
+        return json.loads(APRESENTACAO.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def entra_apresentacao(antes):
+    ESTADO.mkdir(parents=True, exist_ok=True)
+    APRESENTACAO.write_text(json.dumps({
+        "anterior": antes if antes in ORDEM else ORDEM[0],
+        "nao_perturbe": _noctalia("notification-dnd-status") or "off",
+    }) + "\n")
+    _noctalia("notification-dnd-set", "on")
+    _noctalia("caffeine-enable")
+
+
+def sai_apresentacao():
+    if _le_apresentacao().get("nao_perturbe", "off") != "on":   # so desliga se nao era teu
+        _noctalia("notification-dnd-set", "off")
+    _noctalia("caffeine-disable")
+    APRESENTACAO.unlink(missing_ok=True)
+
+
+def apresentar():
+    """Liga o modo apresentacao; se ja esta ligado, volta para o dominio de antes."""
+    alvo = next((n for n in TODOS if modo(n)["apresentacao"]), None)
+    if not alvo:
+        sys.exit("dominio: nenhum dominio tem [modo] apresentacao = true no dominios.toml")
+    if ativo() != alvo:
+        return expandir(alvo)
+    volta = _le_apresentacao().get("anterior")
+    return expandir(volta if volta in ORDEM else ORDEM[0])
+
+
+def expandir(nome, silencioso=False):
+    if nome not in TODOS:
+        sys.exit(f"dominio: '{nome}' nao existe. Disponiveis: {', '.join(TODOS)}")
+    antes = ativo()
+    era, sera = bool(antes) and modo(antes)["apresentacao"], modo(nome)["apresentacao"]
+    if not (BUILD / nome / "tokens.json").exists():
+        construir([nome])
+    tmp = RAIZ / ".atual.tmp"
+    tmp.unlink(missing_ok=True)
+    tmp.symlink_to(Path("_build") / nome)
+    os.replace(tmp, ATUAL)
+    ESTADO.mkdir(parents=True, exist_ok=True)
+    (ESTADO / "atual").write_text(nome + "\n")
+    for f in APLICADORES:
+        try:
+            f(nome)
+        except Exception as e:  # um aplicador com defeito nao impede os outros
+            aviso(f"{f.__name__}: {e}")
+    if era and not sera:
+        sai_apresentacao()                  # antes do aviso do dominio que volta, para ele aparecer
+    if not silencioso:
+        d = TOKENS[nome]
+        if sera:
+            # aviso discreto e sem som, pelo OSD do shell: o Nao Perturbe esconde notificacoes
+            if not era:
+                _noctalia("osd-show", d["glifo_shell"], f"{d['expansao']}: notificações silenciadas")
+        else:
+            toca("expandir")
+            if tem("notify-send"):
+                icone = BUILD / nome / "logo.png"
+                solta(["notify-send", "-a", "Domínios", "-t", "3500", "-i", str(icone), d["expansao"], d["lema"]])
+    if sera and not era:
+        entra_apresentacao(antes)
+    print(nome)
+
+
+def construir(nomes=None):
+    r = subprocess.run([sys.executable, str(RAIZ / "gerar/construir.py"), *(nomes or [])])
+    if r.returncode:
+        sys.exit(r.returncode)
+
+
+def arte(nomes=None):
+    subprocess.run([sys.executable, str(RAIZ / "gerar/papeis.py"), *(nomes or [])], check=True)
+    sons = RAIZ / "gerar/sons.py"
+    if sons.exists():
+        subprocess.run([sys.executable, str(sons), *(nomes or [])], check=True)
+    construir(nomes)
+
+
+def menu():
+    cur = ativo()
+    linhas = [f"{TOKENS[n]['glifo']}  {TOKENS[n]['nome']}{'  · apresentação' if modo(n)['apresentacao'] else ''}"
+              f"{'   (ativo)' if n == cur else ''}" for n in TODOS]
+    gancho = RAIZ / "shell/menu"
+    escolha = None
+    if gancho.exists() and os.access(gancho, os.X_OK):
+        r = roda([str(gancho), "Expansão de Domínio"], input="\n".join(linhas) + "\n", timeout=120)
+        escolha = r.stdout.strip() if r and r.returncode == 0 else None
+    elif tem("fzf") and sys.stdin.isatty():
+        r = subprocess.run(["fzf", "--prompt", "Expansão de Domínio > ", "--height", "8", "--reverse"],
+                           input="\n".join(linhas), capture_output=True, text=True)
+        escolha = r.stdout.strip()
+    else:
+        aviso("sem seletor disponivel; use `dominio <nome>`")
+    for n, linha in zip(TODOS, linhas):
+        if escolha and escolha.startswith(linha.split("   (ativo)")[0]):
+            expandir(n)
+            return
+
+
+# -------------------------------------------------------------- instalacao
+def _bloco(caminho, corpo, comentario="#", criar=True):
+    """Insere ou atualiza um bloco marcado no fim de um arquivo de texto."""
+    ini, fim = f"{comentario} {INI}", f"{comentario} {FIM}"
+    if comentario == "/*":
+        ini, fim = f"/* {INI} */", f"/* {FIM} */"
+    if not caminho.exists():
+        if not criar:
+            return False
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        caminho.write_text("")
+    txt = caminho.read_text()
+    bloco = f"{ini}\n{corpo.rstrip()}\n{fim}\n"
+    padrao = re.compile(re.escape(ini) + r".*?" + re.escape(fim) + r"\n?", re.S)
+    novo = padrao.sub(lambda _: bloco, txt) if padrao.search(txt) else (txt.rstrip("\n") + "\n\n" + bloco if txt.strip() else bloco)
+    if novo != txt:
+        caminho.write_text(novo)
+    return True
+
+
+def _tira_bloco(caminho, comentario="#"):
+    if not caminho.exists():
+        return
+    ini, fim = f"{comentario} {INI}", f"{comentario} {FIM}"
+    if comentario == "/*":
+        ini, fim = f"/* {INI} */", f"/* {FIM} */"
+    txt = caminho.read_text()
+    novo = re.sub(r"\n*" + re.escape(ini) + r".*?" + re.escape(fim) + r"\n?", "\n", txt, flags=re.S)
+    if novo != txt:
+        caminho.write_text(novo.lstrip("\n") if not novo.strip() else novo)
+
+
+def _link(alvo, destino):
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    if destino.is_symlink() or destino.exists():
+        if destino.is_symlink() and os.readlink(destino) == str(alvo):
+            return
+        if not destino.is_symlink():
+            destino.rename(destino.with_name(destino.name + ".antes-dominios"))
+        else:
+            destino.unlink()
+    destino.symlink_to(alvo)
+
+
+def instalar():
+    if not ativo():
+        expandir(ORDEM[0], silencioso=True)
+    # niri: atalhos e aparencia do dominio, incluidos no fim da config
+    _bloco(CFG / "niri/config.kdl",
+           'include "../dominios/niri-atalhos.kdl"\ninclude "../dominios/niri-shell.kdl"\ninclude "../dominios/atual/niri.kdl"', "//", criar=False)
+    # kitty
+    kitty = CFG / "kitty/kitty.conf"
+    _bloco(kitty, f"include {RAIZ}/kitty-base.conf\ninclude {ATUAL}/kitty.conf")
+    # alacritty (terminal reserva): tira cor e fonte fixas e importa o dominio
+    ala = CFG / "alacritty/alacritty.toml"
+    if ala.exists():
+        txt = ala.read_text()
+        if INI not in txt:
+            shutil.copyfile(ala, ala.with_name("alacritty.toml.antes-dominios"))
+            fora, saida, pulando = ("colors", "font"), [], False
+            for linha in txt.splitlines():
+                m = re.match(r"\s*\[+([^\]]+)\]+", linha)
+                if m:
+                    pulando = m.group(1).split(".")[0].strip() in fora or m.group(1).strip() == "general"
+                if pulando or re.match(r"\s*opacity\s*=", linha):
+                    continue
+                saida.append(linha)
+            ala.write_text("\n".join(saida).rstrip("\n") + "\n")
+            _bloco(ala, f'[general]\nimport = ["{ATUAL}/alacritty.toml"]\nlive_config_reload = true\nworking_directory = "None"')
+    # fish: prompt, cores e saudacao
+    _bloco(CFG / "fish/config.fish", f"test -r {RAIZ}/fish/init.fish; and source {RAIZ}/fish/init.fish", criar=False)
+    # btop e cava
+    _link(ATUAL / "btop.theme", CFG / "btop/themes/dominio.theme")
+    btop = CFG / "btop/btop.conf"
+    if btop.exists():
+        t = btop.read_text()
+        n = re.sub(r'(?m)^color_theme\s*=.*$', 'color_theme = "dominio"', t)
+        n = re.sub(r'(?m)^theme_background\s*=.*$', 'theme_background = false', n)
+        if n != t:
+            shutil.copyfile(btop, btop.with_name("btop.conf.antes-dominios"))
+            btop.write_text(n)
+    _link(ATUAL / "cava.ini", CFG / "cava/config")
+    # GTK 3 e 4
+    for v in ("gtk-3.0", "gtk-4.0"):
+        _bloco(CFG / v / "gtk.css", f'@import url("file://{ATUAL}/gtk.css");', "/*")
+    # comando no PATH e papeis visiveis no seletor de wallpaper
+    _link(RAIZ / "bin/dominio", CASA / ".local/bin/dominio")
+    for extra in ("missao", "agentes"):
+        if (RAIZ / "bin" / extra).exists():
+            _link(RAIZ / "bin" / extra, CASA / ".local/bin" / extra)
+    pasta = CASA / "Pictures/Wallpapers"
+    pasta.mkdir(parents=True, exist_ok=True)
+    for n in TODOS:
+        if (RAIZ / "papeis" / f"{n}.png").exists():
+            _link(RAIZ / "papeis" / f"{n}.png", pasta / f"dominio-{n}.png")
+    gancho = RAIZ / "shell/instalar"
+    if gancho.exists() and os.access(gancho, os.X_OK):
+        roda([str(gancho)], timeout=60)
+    expandir(ativo(), silencioso=True)
+    print("instalado. Troque com: dominio <nome>  |  Mod+X abre o seletor")
+
+
+def desinstalar():
+    _tira_bloco(CFG / "niri/config.kdl", "//")
+    _tira_bloco(CFG / "kitty/kitty.conf")
+    _tira_bloco(CFG / "fish/config.fish")
+    for v in ("gtk-3.0", "gtk-4.0"):
+        _tira_bloco(CFG / v / "gtk.css", "/*")
+    for arq in (CFG / "alacritty/alacritty.toml", CFG / "btop/btop.conf"):
+        antes = arq.with_name(arq.name + ".antes-dominios")
+        if antes.exists():
+            shutil.copyfile(antes, arq)
+            antes.unlink()
+    for link in (CFG / "btop/themes/dominio.theme", CFG / "cava/config", CASA / ".local/bin/dominio",
+                 CASA / ".local/bin/missao", CASA / ".local/bin/agentes"):
+        if link.is_symlink():
+            link.unlink()
+    gancho = RAIZ / "shell/desinstalar"
+    if gancho.exists() and os.access(gancho, os.X_OK):
+        roda([str(gancho)], timeout=60)
+    roda(["niri", "msg", "action", "load-config-file"])
+    print("pontos desfeitos. Backup completo das configs antigas: ~/.rice-backup/")
+
+
+def estado():
+    n = ativo()
+    d = TOKENS.get(n, {})
+    print(json.dumps({"dominio": n, "nome": d.get("nome"), "glifo": d.get("glifo"), "rotulo": d.get("rotulo"),
+                      "cor": d.get("cor", {}), "som": preferencias().get("som", True), "lista": ORDEM,
+                      "apresentacao": bool(n) and modo(n)["apresentacao"]},
+                     ensure_ascii=False))
+
+
+def main(argv):
+    if not argv:
+        cur = ativo()
+        for n in TODOS:
+            print(f"{'●' if n == cur else '○'} {n:<10} {TOKENS[n]['nome']}{'  (apresentação, fora do ciclo)' if n not in ORDEM else ''}")
+        return
+    cmd, *resto = argv
+    if cmd in TODOS:
+        return expandir(cmd)
+    if cmd == "apresentar":
+        return apresentar()
+    if cmd == "reafirmar":
+        # chamado por shell/iniciar quando o shell sobe: o Nao Perturbe nao sobrevive a um
+        # reinicio do Noctalia, e uma sessao que comeca em apresentacao precisa dele
+        n = ativo()
+        if n and modo(n)["apresentacao"]:
+            _noctalia("notification-dnd-set", "on")
+            _noctalia("caffeine-enable")
+        return
+    if cmd in ("expandir", "e"):
+        return expandir(resto[0]) if resto else menu()
+    if cmd in ("proximo", "anterior"):
+        cur = ativo() or ORDEM[-1]
+        if cur not in ORDEM:
+            # em apresentacao o ciclo fica travado: um Mod+Shift+X sem querer nao troca o desktop
+            aviso(f"'{cur}' esta fora do ciclo. Saia com `dominio apresentar` (Mod+N) ou escolha no seletor.")
+            return
+        passo = 1 if cmd == "proximo" else -1
+        return expandir(ORDEM[(ORDEM.index(cur) + passo) % len(ORDEM)])
+    if cmd == "menu":
+        return menu()
+    if cmd == "construir":
+        construir(resto)
+        gancho = RAIZ / "shell/instalar"       # mantem plugin e links do shell em dia
+        if gancho.exists() and os.access(gancho, os.X_OK):
+            roda([str(gancho)], timeout=60)
+        if ativo():
+            expandir(ativo(), silencioso=True)
+        return
+    if cmd == "arte":
+        return arte(resto)
+    if cmd == "instalar":
+        return instalar()
+    if cmd == "desinstalar":
+        return desinstalar()
+    if cmd == "estado":
+        return estado()
+    if cmd == "som":
+        p = preferencias()
+        if resto:
+            p["som"] = resto[0] == "on"
+            grava_preferencias(p)
+        print("som", "on" if p.get("som", True) else "off")
+        return
+    if cmd == "tocar" and resto:
+        return toca(resto[0], forcar="--forcar" in resto)
+    if cmd in ("-h", "--help", "ajuda"):
+        print(__doc__)
+        return
+    sys.exit(f"dominio: comando desconhecido '{cmd}'. Veja `dominio ajuda`.")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

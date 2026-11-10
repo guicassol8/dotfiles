@@ -1,0 +1,35 @@
+#!/bin/sh
+# Liga o Noctalia 5 aos Dominios (chamado por `dominio instalar`). Idempotente.
+set -eu
+R="$HOME/.config/dominios"
+N="$HOME/.config/noctalia"
+P="$HOME/.local/share/noctalia/plugins/dominios"
+mkdir -p "$N/palettes" "$P"
+
+# config base, fragmento do dominio ativo e as quatro paletas
+ln -sfn "$R/shell/base.toml" "$N/10-dominios.toml"
+ln -sfn "$R/atual/noctalia.toml" "$N/50-dominio.toml"
+for p in "$R"/_build/*/noctalia-paleta.json; do
+    [ -f "$p" ] || continue
+    d=$(basename "$(dirname "$p")")
+    ln -sfn "$p" "$N/palettes/dominio-$d.json"
+done
+
+# plugin (copia: o Noctalia procura um diretorio de verdade em plugins/)
+cp -rfT "$R/shell/plugin/dominios" "$P"
+
+# niri: o iniciador entra no lugar da linha que subia o shell antigo
+A="$HOME/.config/niri/cfg/autostart.kdl"
+if [ -f "$A" ] && grep -q '^spawn-sh-at-startup "qs -c noctalia-shell"' "$A"; then
+    cp -f "$A" "$A.antes-dominios"
+    sed -i 's|^spawn-sh-at-startup "qs -c noctalia-shell"|spawn-sh-at-startup "~/.config/dominios/shell/iniciar" // dominios: antes era "qs -c noctalia-shell"|' "$A"
+elif [ -f "$A" ] && grep -q '^spawn-sh-at-startup "noctalia"' "$A"; then
+    # autostart que ja sobe o Noctalia 5 direto (depois de um `dominio desinstalar`)
+    cp -f "$A" "$A.antes-dominios"
+    sed -i 's|^spawn-sh-at-startup "noctalia"|spawn-sh-at-startup "~/.config/dominios/shell/iniciar" // dominios: antes era "noctalia"|' "$A"
+fi
+# o awww-daemon desenhava um papel de parede por cima do papel do Noctalia: sai da inicializacao
+if [ -f "$A" ] && grep -q '^spawn-at-startup "awww-daemon"' "$A"; then
+    [ -f "$A.antes-dominios" ] || cp -f "$A" "$A.antes-dominios"
+    sed -i 's|^spawn-at-startup "awww-daemon"|// dominios: desligado, o Noctalia desenha o papel de parede. Era: spawn-at-startup "awww-daemon"|' "$A"
+fi

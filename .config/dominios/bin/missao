@@ -1,0 +1,1470 @@
+#!/usr/bin/env python3
+"""missao: missões diárias no estilo do Sistema.
+
+  missao [lista] [--json]        lista de hoje, progresso e sequência
+  missao feito <id|nº> [...]     marca como feita
+  missao desfeito <id|nº> [...]  desmarca
+  missao alternar <id|nº> [...]  inverte
+  missao sequencia               sequência atual e recorde de dias completos
+  missao semana                  grade dos últimos 7 dias
+  missao widget [--json]         uma linha curta pra barra
+  missao tui                     painel interativo
+  missao painel                  abre o painel numa janela flutuante
+  missao ajuda                   este texto
+
+<id|nº> é o id da missão, um prefixo único dele ou o número dela na lista
+de hoje. Dá pra passar vários de uma vez: missao feito 1 3 leitura
+
+Opções: --cor força cor mesmo fora do terminal, --sem-cor desliga.
+--json (em lista, feito, desfeito, alternar e widget) troca o texto por um
+objeto JSON numa linha só, pra painéis e scripts.
+
+No painel: ↑↓ ou k/j movem, espaço ou Enter marca, r recarrega, q ou Esc sai.
+
+Missões: ~/.config/dominios/missoes.toml (edita à vontade)
+Estado:  ~/.local/state/dominios/missoes.json
+
+Variáveis pra teste: DOMINIOS_MISSOES (outro missoes.toml), DOMINIOS_ESTADO
+(outra pasta de estado), DOMINIOS_AGORA (data e hora fingidas, formato ISO),
+DOMINIOS_TOKENS (tokens.json de outro domínio), DOMINIOS_TERMINAL (outro
+lançador de terminal).
+"""
+import os
+import sys
+
+EU = os.path.realpath(__file__)
+AQUI = os.path.dirname(EU)
+RAIZ = os.path.dirname(AQUI)
+CASA = os.path.expanduser("~")
+
+NOME = "missao"
+CLASSE = "dominio-painel"        # app-id que a regra do niri deixa flutuante
+TITULO = "Missões diárias"       # titulo da janela do painel
+OUTROS_PAINEIS = ("Agentes",)    # titulos dos outros paineis com o mesmo app-id
+GUARDAR_DIAS = 400               # historico mantido em missoes.json
+ESPERA_TUI_S = 30                # o painel dorme no select e so confere arquivos nesse intervalo
+VIRADA_PADRAO = "04:00"
+
+DIAS = ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
+DIAS_CURTOS = ("seg", "ter", "qua", "qui", "sex", "sáb", "dom")
+DIAS_LONGOS = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
+               "sexta-feira", "sábado", "domingo")
+DIAS_MEDIOS = ("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo")
+MESES = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+         "agosto", "setembro", "outubro", "novembro", "dezembro")
+
+# Glifos (Nerd Font, Material Design)
+G_FEITA = "\U000f0135"      # caixa marcada
+G_ABERTA = "\U000f0131"     # caixa vazia
+G_FOGO = "\U000f0238"
+G_TROFEU = "\U000f0538"
+G_CERTO = "\U000f012c"
+G_ERRADO = ""
+G_PADRAO = "\U000f0787"     # espadas cruzadas, se o dominio nao trouxer glifo
+# Para o shell (painel nativo): nome de icone Tabler e papel de cor da paleta
+ICONE_SHELL = "swords"
+COR_SHELL = {"completo": "tertiary", "pendente": "on_surface", "vazio": "on_surface"}
+
+
+class ErroConfig(Exception):
+    """missoes.toml ausente ou malformado. `detalhe` e a mensagem sem o caminho."""
+
+    def __init__(self, arq, detalhe):
+        super().__init__(f"{arq}: {detalhe}")
+        self.detalhe = detalhe
+
+
+class ErroUso(Exception):
+    """Pedido que nao da pra atender (id desconhecido, falta de terminal...)."""
+
+
+def aviso(msg):
+    print(f"{NOME}: {msg}", file=sys.stderr)
+
+
+def curto(caminho):
+    """Caminho com ~ no lugar da pasta pessoal, pra mensagens."""
+    caminho = str(caminho)
+    return "~" + caminho[len(CASA):] if caminho.startswith(CASA + os.sep) else caminho
+
+
+def caminho_config():
+    return os.environ.get("DOMINIOS_MISSOES") or os.path.join(RAIZ, "missoes.toml")
+
+
+def pasta_estado():
+    pasta = os.environ.get("DOMINIOS_ESTADO")
+    if pasta:
+        return pasta
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(CASA, ".local", "state")
+    return os.path.join(base, "dominios")
+
+
+def arquivo_estado():
+    return os.path.join(pasta_estado(), "missoes.json")
+
+
+def caminhos_tokens():
+    env = os.environ.get("DOMINIOS_TOKENS")
+    return ([env] if env else []) + [os.path.join(RAIZ, "atual", "tokens.json"),
+                                     os.path.join(RAIZ, "_build", "sistema", "tokens.json")]
+
+
+def plural(n, um, varios):
+    return f"{n} {um if n == 1 else varios}"
+
+
+def dias_txt(n):
+    return plural(n, "dia", "dias")
+
+
+# ------------------------------------------------------------------ texto
+def larg(s):
+    """Largura em colunas do terminal (CJK ocupa 2, combinantes ocupam 0)."""
+    if s.isascii():
+        return len(s)
+    import unicodedata
+    n = 0
+    for ch in s:
+        if ch < "̀":
+            n += 1
+        elif unicodedata.category(ch) in ("Mn", "Me", "Cf"):
+            continue
+        else:
+            n += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    return n
+
+
+def corta(s, n):
+    """Trunca para caber em n colunas, com reticencias."""
+    if n <= 0:
+        return ""
+    if larg(s) <= n:
+        return s
+    out, usado = [], 0
+    for ch in s:
+        w = larg(ch)
+        if usado + w > n - 1:
+            break
+        out.append(ch)
+        usado += w
+    return "".join(out) + "…"
+
+
+def enche(s, n):
+    """Completa com espacos ate n colunas."""
+    return s + " " * max(0, n - larg(s))
+
+
+def data_longa(d, ano=False):
+    dia = "1º" if d.day == 1 else str(d.day)
+    txt = f"{DIAS_LONGOS[d.weekday()]}, {dia} de {MESES[d.month - 1]}"
+    return f"{txt} de {d.year}" if ano else txt
+
+
+# ------------------------------------------------------------------- tema
+PAPEL_TOKEN = {"texto": "texto", "suave": "texto_suave", "primaria": "primaria",
+               "secundaria": "secundaria", "terciaria": "terciaria", "ok": "ok",
+               "aviso": "aviso", "erro": "erro", "contorno": "contorno",
+               "selecao": "superficie2"}
+# Reserva sem tokens (ou em terminal sem truecolor): ANSI simples
+PAPEL_ANSI = {"texto": "39", "suave": "90", "primaria": "36", "secundaria": "35",
+              "terciaria": "33", "ok": "32", "aviso": "33", "erro": "31",
+              "contorno": "90", "selecao": "90"}
+CAIXAS = {
+    "viva": dict(zip("se sd ie id h v te td".split(), "┏┓┗┛━┃┣┫")),      # raio 0
+    "reta": dict(zip("se sd ie id h v te td".split(), "┌┐└┘─│├┤")),
+    "curva": dict(zip("se sd ie id h v te td".split(), "╭╮╰╯─│├┤")),     # raio grande
+}
+
+
+def le_tokens():
+    import json
+    for caminho in caminhos_tokens():
+        try:
+            with open(caminho, encoding="utf-8") as f:
+                dados = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if isinstance(dados, dict) and isinstance(dados.get("cor"), dict):
+            return dados
+    return {}
+
+
+class Tema:
+    """Cores e textos do dominio ativo. Sem cor ligada, todo codigo vira ''."""
+
+    def __init__(self, cor=True):
+        tk = le_tokens()
+        self.tem_tokens = bool(tk)
+
+        def texto(chave, padrao):
+            v = tk.get(chave)
+            return v if isinstance(v, str) and v.strip() else padrao
+
+        self.nome = texto("nome", "Domínios")
+        self.rotulo = texto("rotulo", "DOMÍNIOS")
+        self.glifo = texto("glifo", G_PADRAO)
+        self.lema = texto("lema", "")
+        self.notificacao = texto("notificacao", "")
+        self.titulo_missoes = texto("missoes_titulo", "MISSÕES DIÁRIAS")
+        forma = tk.get("forma") if isinstance(tk.get("forma"), dict) else {}
+        raio = forma.get("raio")
+        raio = raio if isinstance(raio, (int, float)) else 4
+        self.caixa = CAIXAS["viva" if raio <= 0 else "curva" if raio >= 10 else "reta"]
+        self.ligada = bool(cor)
+        truecolor = os.environ.get("TERM", "") not in ("linux", "dumb", "vt100", "vt220")
+        self._cores = {}
+        cores = tk.get("cor") if isinstance(tk.get("cor"), dict) else {}
+        for papel, chave in PAPEL_TOKEN.items():
+            rgb = self._hex(cores.get(chave)) if truecolor else None
+            self._cores[papel] = rgb
+        self.rst = "\x1b[0m" if self.ligada else ""
+
+    @staticmethod
+    def _hex(v):
+        if isinstance(v, str) and len(v) == 7 and v[0] == "#":
+            try:
+                return int(v[1:3], 16), int(v[3:5], 16), int(v[5:7], 16)
+            except ValueError:
+                return None
+        return None
+
+    def fg(self, papel, negrito=False, italico=False):
+        if not self.ligada:
+            return ""
+        rgb = self._cores.get(papel)
+        cod = "38;2;%d;%d;%d" % rgb if rgb else PAPEL_ANSI.get(papel, "39")
+        return "\x1b[" + ("1;" if negrito else "") + ("3;" if italico else "") + cod + "m"
+
+    def bg(self, papel):
+        if not self.ligada:
+            return ""
+        rgb = self._cores.get(papel)
+        if rgb:
+            return "\x1b[48;2;%d;%d;%dm" % rgb
+        return "\x1b[100m" if papel == "selecao" else ""
+
+    def pinta(self, papel, txt, **kw):
+        return f"{self.fg(papel, **kw)}{txt}{self.rst}" if self.ligada else txt
+
+
+def compoe(tema, segs, largura, fundo="", margem=0):
+    """Junta segmentos (estilo, texto) numa linha de exatamente `largura` colunas."""
+    margem = max(0, min(margem, largura // 2))
+    util = largura - 2 * margem
+    out, usado = [], 0
+    rst = tema.rst
+    if margem:
+        out.append(f"{fundo}{' ' * margem}")
+    for estilo, txt in segs:
+        if usado >= util:
+            break
+        w = larg(txt)
+        if usado + w > util:
+            txt = corta(txt, util - usado)
+            w = larg(txt)
+        out.append(f"{rst}{fundo}{estilo}{txt}" if (estilo or fundo) else f"{rst}{txt}")
+        usado += w
+    out.append(f"{rst}{fundo}{' ' * (largura - margem - usado)}{rst}")
+    return "".join(out)
+
+
+def lados(esq, dir_, largura):
+    """Segmentos a esquerda e a direita; se nao couber, fica so a esquerda."""
+    le = sum(larg(t) for _, t in esq)
+    ld = sum(larg(t) for _, t in dir_)
+    if not dir_ or le + ld + 2 > largura:
+        return list(esq)
+    return list(esq) + [("", " " * (largura - le - ld))] + list(dir_)
+
+
+def barra(tema, feitas, total, largura, papel="primaria"):
+    cheio = 0 if total <= 0 else int(round(largura * feitas / total))
+    if 0 < feitas < total:
+        cheio = max(1, min(largura - 1, cheio))
+    return [(tema.fg(papel), "█" * cheio), (tema.fg("contorno"), "░" * (largura - cheio))]
+
+
+# ----------------------------------------------------------------- config
+def _le_virada(v):
+    """Aceita "HH:MM", um inteiro de hora ou um horario TOML. Devolve minutos."""
+    if hasattr(v, "hour") and hasattr(v, "minute"):
+        return v.hour * 60 + v.minute
+    if isinstance(v, bool):
+        raise ValueError
+    if isinstance(v, int):
+        if 0 <= v <= 23:
+            return v * 60
+        raise ValueError
+    if isinstance(v, str):
+        partes = v.strip().split(":")
+        if len(partes) == 2 and all(p.isdigit() and 1 <= len(p) <= 2 for p in partes):
+            h, m = int(partes[0]), int(partes[1])
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                return h * 60 + m
+    raise ValueError
+
+
+def _le_dias(v):
+    if isinstance(v, str):
+        if v.strip().lower() in ("todos", "todo dia", "sempre", "*"):
+            return frozenset(range(7))
+        v = [v]
+    if not isinstance(v, list) or not v:
+        raise ValueError('use "todos" ou uma lista como ["seg", "qua", "sex"]')
+    achados = set()
+    for item in v:
+        chave = item.strip().lower().replace("á", "a")[:3] if isinstance(item, str) else ""
+        if chave not in DIAS:
+            raise ValueError(f"dia inválido {item!r} (use seg, ter, qua, qui, sex, sab, dom)")
+        achados.add(DIAS.index(chave))
+    return frozenset(achados)
+
+
+def carrega_config():
+    """Le e valida missoes.toml. Levanta ErroConfig com mensagem clara."""
+    import tomllib
+    caminho = caminho_config()
+    arq = curto(caminho)
+    try:
+        with open(caminho, "rb") as f:
+            dados = tomllib.load(f)
+    except FileNotFoundError:
+        raise ErroConfig(arq, "arquivo não encontrado. Cria ele com blocos [[missao]] "
+                              "(id, titulo, dias).") from None
+    except OSError as e:
+        raise ErroConfig(arq, f"não consegui ler ({e.strerror or e}).") from None
+    except UnicodeDecodeError:
+        raise ErroConfig(arq, "não está em UTF-8.") from None
+    except tomllib.TOMLDecodeError as e:
+        linha = getattr(e, "lineno", None)
+        if linha:
+            raise ErroConfig(arq, f"erro de sintaxe TOML na linha {linha}, coluna "
+                                  f"{getattr(e, 'colno', '?')} ({getattr(e, 'msg', e)}).") from None
+        raise ErroConfig(arq, f"erro de sintaxe TOML ({e}).") from None
+
+    try:
+        virada = _le_virada(dados.get("virada", VIRADA_PADRAO))
+    except ValueError:
+        raise ErroConfig(arq, f'virada = {dados.get("virada")!r} não vale. '
+                              'Use "HH:MM", por exemplo "04:00".') from None
+
+    brutas = dados.get("missao", [])
+    if isinstance(brutas, dict):
+        raise ErroConfig(arq, "use [[missao]] com dois colchetes, um bloco por missão.")
+    if not isinstance(brutas, list):
+        raise ErroConfig(arq, "'missao' tem que ser uma lista de blocos [[missao]].")
+    missoes, vistos = [], set()
+    for n, m in enumerate(brutas, 1):
+        onde = f"missão nº {n}"
+        if not isinstance(m, dict):
+            raise ErroConfig(arq, f"{onde} não é um bloco [[missao]].")
+        ident = m.get("id")
+        if not isinstance(ident, str) or not ident.strip():
+            raise ErroConfig(arq, f'{onde} está sem id (um texto curto, por exemplo id = "leitura").')
+        ident = ident.strip().lower()
+        if any(c.isspace() or c < " " or c == "\x7f" for c in ident):
+            raise ErroConfig(arq, f"{onde}: o id {ident!r} não pode ter espaço nem caractere de controle.")
+        if ident in vistos:
+            raise ErroConfig(arq, f"{onde}: o id {ident!r} está repetido.")
+        vistos.add(ident)
+        titulo = m.get("titulo", ident)
+        if not isinstance(titulo, str) or not titulo.strip():
+            raise ErroConfig(arq, f"{onde} ({ident}): titulo tem que ser um texto.")
+        try:
+            dias = _le_dias(m.get("dias", "todos"))
+        except ValueError as e:
+            raise ErroConfig(arq, f"{onde} ({ident}): dias não vale, {e}.") from None
+        titulo = "".join(c for c in " ".join(titulo.split()) if c >= " " and c != "\x7f")
+        missoes.append({"id": ident, "titulo": titulo or ident, "dias": dias})
+    return {"virada": virada, "virada_txt": "%02d:%02d" % divmod(virada, 60), "missoes": missoes}
+
+
+# ------------------------------------------------------------------ tempo
+def agora():
+    from datetime import datetime
+    fingido = os.environ.get("DOMINIOS_AGORA")
+    if fingido:
+        try:
+            return datetime.fromisoformat(fingido).replace(tzinfo=None)
+        except ValueError:
+            aviso(f"DOMINIOS_AGORA={fingido!r} não é uma data ISO; usando o relógio.")
+    return datetime.now()
+
+
+def dia_da_missao(momento, virada_min):
+    """O dia das missoes so vira na hora da virada (padrao 04:00)."""
+    from datetime import timedelta
+    return (momento - timedelta(minutes=virada_min)).date()
+
+
+def _data(txt):
+    from datetime import date
+    try:
+        return date.fromisoformat(txt)
+    except (TypeError, ValueError):
+        return None
+
+
+# ----------------------------------------------------------------- estado
+def _encosta(arq):
+    """Tira do caminho um estado corrompido, sem apagar."""
+    import time
+    destino = f"{arq}.corrompido-{time.strftime('%Y%m%d-%H%M%S')}"
+    try:
+        os.replace(arq, destino)
+        aviso(f"{curto(arq)} estava corrompido; guardei em {curto(destino)} e comecei um novo.")
+    except OSError as e:
+        aviso(f"{curto(arq)} está corrompido e não consegui mover ({e.strerror or e}).")
+
+
+def carrega_estado():
+    import json
+    arq = arquivo_estado()
+    try:
+        with open(arq, "rb") as f:
+            bruto = f.read()
+    except FileNotFoundError:
+        return {"versao": 1, "dias": {}}
+    except OSError as e:
+        aviso(f"não consegui ler {curto(arq)}: {e.strerror or e}")
+        return {"versao": 1, "dias": {}}
+    try:
+        dados = json.loads(bruto.decode("utf-8"))
+        if not isinstance(dados, dict) or not isinstance(dados.get("dias"), dict):
+            raise ValueError("formato inesperado")
+    except ValueError:
+        _encosta(arq)
+        return {"versao": 1, "dias": {}}
+    dias = {}
+    for chave, reg in dados["dias"].items():
+        if _data(chave) is None:
+            continue
+        if isinstance(reg, list):
+            reg = {"feitas": reg}
+        if not isinstance(reg, dict):
+            continue
+        feitas = reg.get("feitas") if isinstance(reg.get("feitas"), list) else []
+        limpo = {"feitas": list(dict.fromkeys(x for x in feitas if isinstance(x, str)))}
+        if isinstance(reg.get("agendadas"), list):
+            limpo["agendadas"] = [x for x in reg["agendadas"] if isinstance(x, str)]
+        if reg.get("celebrado") is True:
+            limpo["celebrado"] = True
+        dias[chave] = limpo
+    return {"versao": 1, "dias": dias}
+
+
+def grava_estado(estado, hoje):
+    """Escrita atomica (arquivo temporario + rename), guardando ~400 dias."""
+    import json
+    from datetime import timedelta
+    pasta = pasta_estado()
+    os.makedirs(pasta, exist_ok=True)
+    limite = (hoje - timedelta(days=GUARDAR_DIAS)).isoformat()
+    estado["dias"] = {k: v for k, v in sorted(estado["dias"].items()) if k >= limite}
+    arq = arquivo_estado()
+    tmp = f"{arq}.{os.getpid()}.tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(estado, f, ensure_ascii=False, indent=1)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, arq)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def com_trava(fn):
+    """Roda fn() com trava exclusiva na pasta de estado (ler, mudar e gravar sem corrida)."""
+    import fcntl
+    pasta = pasta_estado()
+    os.makedirs(pasta, exist_ok=True)
+    fd = os.open(pasta, os.O_RDONLY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        return fn()
+    finally:
+        os.close(fd)
+
+
+# ----------------------------------------------------------------- regras
+def do_dia(cfg, dia):
+    """Missoes que a config agenda para um dia (pelo dia da semana)."""
+    n = dia.weekday()
+    return [m for m in cfg["missoes"] if n in m["dias"]]
+
+
+def feitas_em(estado, dia):
+    return set(estado["dias"].get(dia.isoformat(), {}).get("feitas", ()))
+
+
+def agendadas_em(cfg, estado, dia, hoje):
+    """Ids agendados num dia. Hoje vale a config; no passado vale o retrato gravado
+    naquele dia, para uma missao criada depois nao estragar o historico."""
+    if dia != hoje:
+        reg = estado["dias"].get(dia.isoformat())
+        if reg and "agendadas" in reg:
+            return list(reg["agendadas"])
+    return [m["id"] for m in do_dia(cfg, dia)]
+
+
+def situacao(cfg, estado, dia, hoje):
+    """'vazio' (nada agendado), 'completo' ou 'pendente'."""
+    agendadas = agendadas_em(cfg, estado, dia, hoje)
+    if not agendadas:
+        return "vazio"
+    feitas = feitas_em(estado, dia)
+    return "completo" if all(i in feitas for i in agendadas) else "pendente"
+
+
+def sequencias(cfg, estado, hoje):
+    """(sequencia atual, recorde) de dias completos. Dia sem missao agendada nao
+    conta nem quebra; hoje em aberto tambem nao quebra (o dia ainda nao acabou)."""
+    from datetime import timedelta
+    datas = [d for d in map(_data, estado["dias"]) if d and d <= hoje]
+    if not datas:
+        return 0, 0
+    um = timedelta(days=1)
+    dia, atual, recorde = min(datas), 0, 0
+    while dia <= hoje:
+        s = situacao(cfg, estado, dia, hoje)
+        if s == "completo":
+            atual += 1
+            recorde = max(recorde, atual)
+        elif s == "pendente" and dia != hoje:
+            atual = 0
+        dia += um
+    return atual, recorde
+
+
+def resolve(alvo, lista, todas):
+    """Acha a missao de hoje por id, numero na lista ou prefixo unico do id."""
+    a = alvo.strip().lower()
+    for m in lista:
+        if m["id"] == a:
+            return m
+    if a.isdigit():
+        n = int(a)
+        if 1 <= n <= len(lista):
+            return lista[n - 1]
+        if not lista:
+            raise ErroUso("hoje não tem missão agendada.")
+        raise ErroUso(f"não tem missão nº {n} hoje (a lista vai de 1 a {len(lista)}).")
+    cands = [m for m in lista if a and m["id"].startswith(a)]
+    if len(cands) == 1:
+        return cands[0]
+    if len(cands) > 1:
+        raise ErroUso(f"'{alvo}' é ambíguo: pode ser {', '.join(m['id'] for m in cands)}.")
+    fora = [m for m in todas if a and m["id"].startswith(a)]
+    if len(fora) == 1 or any(m["id"] == a for m in fora):
+        m = next((x for x in fora if x["id"] == a), fora[0])
+        dias = ", ".join(DIAS_CURTOS[i] for i in sorted(m["dias"]))
+        raise ErroUso(f"'{m['id']}' não está agendada pra hoje (dias dela: {dias}).")
+    if not lista:
+        raise ErroUso("hoje não tem missão agendada.")
+    raise ErroUso(f"não conheço a missão '{alvo}'. As de hoje: {', '.join(m['id'] for m in lista)}.")
+
+
+def aplica(cfg, hoje, ids, modo):
+    """Marca, desmarca ou inverte ids no dia `hoje`, sob trava.
+    Devolve (estado, [(id, estava, ficou)], celebrar)."""
+    def muda():
+        estado = carrega_estado()
+        chave = hoje.isoformat()
+        agendadas = [m["id"] for m in do_dia(cfg, hoje)]
+        antigo = estado["dias"].get(chave)
+        reg = antigo or {"feitas": []}
+        feitas = list(reg["feitas"])
+        antes = bool(agendadas) and all(i in feitas for i in agendadas)
+        mudancas = []
+        for ident in ids:
+            estava = ident in feitas
+            fica = (not estava) if modo == "alternar" else (modo == "feito")
+            if fica and not estava:
+                feitas.append(ident)
+            elif estava and not fica:
+                feitas.remove(ident)
+            mudancas.append((ident, estava, fica))
+        ordem = {ident: n for n, ident in enumerate(agendadas)}
+        feitas.sort(key=lambda i: ordem.get(i, len(ordem)))
+        depois = bool(agendadas) and all(i in feitas for i in agendadas)
+        # o aviso de dia completo sai uma vez so por dia, mesmo desmarcando e marcando de novo
+        celebrar = depois and not antes and not reg.get("celebrado")
+        novo = {"feitas": feitas, "agendadas": agendadas}
+        if celebrar or reg.get("celebrado"):
+            novo["celebrado"] = True
+        if feitas or novo.get("celebrado"):
+            estado["dias"][chave] = novo
+        else:
+            estado["dias"].pop(chave, None)      # dia sem nada feito nao ocupa o arquivo
+        if estado["dias"].get(chave) != antigo:
+            grava_estado(estado, hoje)
+        return estado, mudancas, celebrar
+    return com_trava(muda)
+
+
+# ---------------------------------------------------------------- efeitos
+def qual(prog):
+    """Caminho de um executavel no PATH (shutil.which enxuto)."""
+    for pasta in os.environ.get("PATH", "").split(os.pathsep):
+        cand = os.path.join(pasta or ".", prog)
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
+def solta(cmd):
+    """Dispara um comando desacoplado (duplo fork): nao trava a interface,
+    nao deixa zumbi e nao herda o terminal."""
+    try:
+        pid = os.fork()
+    except OSError as e:
+        aviso(f"{cmd[0]}: {e.strerror or e}")
+        return
+    if pid:
+        try:
+            os.waitpid(pid, 0)
+        except OSError:
+            pass
+        return
+    codigo = 0
+    try:
+        os.setsid()
+        if os.fork() == 0:
+            codigo = 127
+            nulo = os.open(os.devnull, os.O_RDWR)
+            for fd in (0, 1, 2):
+                os.dup2(nulo, fd)
+            os.execvp(cmd[0], cmd)
+    except BaseException:
+        pass
+    finally:
+        os._exit(codigo)
+
+
+def celebra(tema, total, seq):
+    """Som do dominio e uma notificacao quando o dia fecha."""
+    dominio = qual("dominio") or os.path.join(AQUI, "dominio")
+    if os.access(dominio, os.X_OK):
+        solta([dominio, "tocar", "concluir"])
+    notifica = qual("notify-send")
+    if notifica:
+        titulo = f"{tema.notificacao} Missões diárias concluídas".strip()
+        corpo = f"Mandou bem! {total} de {total} feitas hoje. Sequência: {dias_txt(seq)}."
+        cmd = [notifica, "-a", "Domínios", "-t", "6000"]
+        icone = os.path.join(RAIZ, "atual", "logo.png")
+        if os.path.exists(icone):
+            cmd += ["-i", icone]
+        solta(cmd + [titulo, corpo])
+
+
+# ----------------------------------------------------------------- saidas
+def _contexto():
+    cfg = carrega_config()
+    momento = agora()
+    hoje = dia_da_missao(momento, cfg["virada"])
+    estado = carrega_estado()
+    return cfg, momento, hoje, estado
+
+
+def _aviso_virada(cfg, momento, hoje):
+    return f"o dia vira às {cfg['virada_txt']}" if momento.date() != hoje else ""
+
+
+def resumo(cfg, hoje, estado):
+    """O dia de hoje como dicionario: e o que `--json` imprime."""
+    feitas = feitas_em(estado, hoje)
+    missoes = [{"id": m["id"], "titulo": m["titulo"], "feita": m["id"] in feitas} for m in do_dia(cfg, hoje)]
+    seq, melhor = sequencias(cfg, estado, hoje)
+    dia = "1º" if hoje.day == 1 else str(hoje.day)
+    return {"dia": hoje.isoformat(),
+            "data_extenso": f"{DIAS_MEDIOS[hoje.weekday()]}, {dia} de {MESES[hoje.month - 1]}",
+            "feitas": sum(1 for m in missoes if m["feita"]), "total": len(missoes),
+            "sequencia": seq, "melhor": melhor, "missoes": missoes}
+
+
+def imprime_json(obj):
+    """Sempre numa linha so, em UTF-8."""
+    import json
+    print(json.dumps(obj, ensure_ascii=False, separators=(", ", ": ")))
+
+
+def cmd_lista(cor, em_json=False):
+    cfg, momento, hoje, estado = _contexto()
+    if em_json:
+        imprime_json(resumo(cfg, hoje, estado))
+        return 0
+    tema = Tema(cor)
+    lista = do_dia(cfg, hoje)
+    feitas = feitas_em(estado, hoje)
+    p = tema.pinta
+    virada = _aviso_virada(cfg, momento, hoje)
+    out = [f"{p('primaria', tema.glifo + '  ' + tema.titulo_missoes, negrito=True)}  "
+           f"{p('suave', data_longa(hoje) + (f' ({virada})' if virada else ''))}", ""]
+    if not lista:
+        out.append(f"  {p('suave', 'Nenhuma missão agendada pra hoje. Dia livre.')}")
+    else:
+        col = max(larg(m["titulo"]) for m in lista)
+        n_feitas = 0
+        for n, m in enumerate(lista, 1):
+            ok = m["id"] in feitas
+            n_feitas += ok
+            marca = p("ok", G_FEITA) if ok else p("suave", G_ABERTA)
+            titulo = p("suave" if ok else "texto", enche(m["titulo"], col))
+            out.append(f"  {p('suave', '%2d' % n)}  {marca}  {titulo}   {p('contorno', m['id'])}")
+        total = len(lista)
+        completo = n_feitas == total
+        segs = barra(tema, n_feitas, total, 24, "ok" if completo else "primaria")
+        linha = "".join(f"{e}{t}{tema.rst}" for e, t in segs)
+        out += ["", f"  {linha}  {p('texto', f'{n_feitas}/{total}')} "
+                    f"{p('suave', '· %d%%' % round(100 * n_feitas / total))}"]
+        if completo:
+            out.append(f"  {p('ok', G_TROFEU + ' Tudo feito por hoje!', negrito=True)}")
+    seq, recorde = sequencias(cfg, estado, hoje)
+    out.append(f"  {p('terciaria', G_FOGO)} {p('texto', 'sequência: ' + dias_txt(seq))} "
+               f"{p('suave', '· recorde: ' + dias_txt(recorde))}")
+    print("\n".join(out))
+    return 0
+
+
+def cmd_marcar(cor, modo, alvos, em_json=False):
+    if not alvos:
+        raise ErroUso(f"faltou dizer qual missão. Exemplo: missao {modo} 2")
+    cfg, _momento, hoje, _ = _contexto()
+    lista = do_dia(cfg, hoje)
+    ids = []
+    for alvo in alvos:
+        m = resolve(alvo, lista, cfg["missoes"])
+        if m["id"] not in ids:
+            ids.append(m["id"])
+    estado, mudancas, celebrar = aplica(cfg, hoje, ids, modo)
+    if em_json:
+        dados = resumo(cfg, hoje, estado)
+        imprime_json(dados)
+        if celebrar:
+            celebra(Tema(False), dados["total"], dados["sequencia"])
+        return 0
+    tema = Tema(cor)
+    titulos = {m["id"]: m["titulo"] for m in lista}
+    p = tema.pinta
+    for ident, estava, ficou in mudancas:
+        if ficou:
+            nota = "" if not estava else p("suave", "  (já estava feita)")
+            print(f"{p('ok', G_FEITA)} {titulos[ident]}{nota}")
+        else:
+            nota = "" if estava else p("suave", "  (já estava pendente)")
+            print(f"{p('suave', G_ABERTA)} {titulos[ident]}{nota}")
+    feitas = feitas_em(estado, hoje)
+    n = sum(1 for m in lista if m["id"] in feitas)
+    seq, _recorde = sequencias(cfg, estado, hoje)
+    if n == len(lista):
+        print(p("ok", f"{G_TROFEU} {n}/{len(lista)} Tudo feito por hoje! Sequência: {dias_txt(seq)}.",
+                negrito=True))
+    else:
+        print(p("suave", f"{n}/{len(lista)} feitas hoje"))
+    if celebrar:
+        celebra(tema, len(lista), seq)
+    return 0
+
+
+def cmd_sequencia(tema):
+    cfg, _momento, hoje, estado = _contexto()
+    seq, recorde = sequencias(cfg, estado, hoje)
+    p = tema.pinta
+    print(f"{p('terciaria', G_FOGO)} Sequência atual: {p('texto', dias_txt(seq), negrito=True)}")
+    print(f"{p('primaria', G_TROFEU)} Recorde: {p('texto', dias_txt(recorde), negrito=True)}")
+    s = situacao(cfg, estado, hoje, hoje)
+    if s == "pendente":
+        lista = do_dia(cfg, hoje)
+        falta = len(lista) - sum(1 for m in lista if m["id"] in feitas_em(estado, hoje))
+        print(p("suave", f"Hoje ainda {'falta' if falta == 1 else 'faltam'} {falta} de {len(lista)}."))
+    elif s == "completo":
+        print(p("ok", "Hoje já está completo."))
+    else:
+        print(p("suave", "Hoje não tem missão agendada, a sequência fica como está."))
+    return 0
+
+
+def cmd_semana(tema):
+    from datetime import timedelta
+    cfg, _momento, hoje, estado = _contexto()
+    dias = [hoje - timedelta(days=n) for n in range(6, -1, -1)]
+    p = tema.pinta
+    # linhas: missoes da config e, depois, as que so existem no historico da semana
+    titulos = {m["id"]: m["titulo"] for m in cfg["missoes"]}
+    ordem = [m["id"] for m in cfg["missoes"]]
+    for d in dias:
+        for ident in agendadas_em(cfg, estado, d, hoje):
+            if ident not in titulos:
+                titulos[ident] = ident
+                ordem.append(ident)
+    col = max([larg(t) for t in titulos.values()] + [12])
+    # antes do primeiro dia registrado nao ha o que cobrar: fica em branco
+    registradas = [d for d in map(_data, estado["dias"]) if d]
+    comeco = min(registradas) if registradas else hoje
+    ini, fim = dias[0], dias[-1]
+    out = [f"{p('primaria', tema.glifo + '  SEMANA', negrito=True)}  "
+           f"{p('suave', '%02d/%02d a %02d/%02d' % (ini.day, ini.month, fim.day, fim.month))}", ""]
+    out.append("  " + " " * col + "  " + "".join(
+        p("primaria" if d == hoje else "suave", f"{DIAS_CURTOS[d.weekday()]:>5}") for d in dias))
+    out.append("  " + " " * col + "  " + "".join(
+        p("primaria" if d == hoje else "suave", f"{d.day:>5}") for d in dias))
+
+    def celula(papel, simbolo):
+        return "    " + p(papel, simbolo)
+
+    for ident in ordem:
+        linha = f"  {p('texto', enche(titulos[ident], col))}  "
+        for d in dias:
+            if ident not in agendadas_em(cfg, estado, d, hoje):
+                linha += celula("contorno", "·")
+            elif d < comeco:
+                linha += celula("contorno", " ")
+            elif ident in feitas_em(estado, d):
+                linha += celula("ok", G_CERTO)
+            elif d == hoje:
+                linha += celula("aviso", "○")
+            else:
+                linha += celula("erro", G_ERRADO)
+        out.append(linha)
+    linha = f"  {p('suave', enche('dia completo', col))}  "
+    for d in dias:
+        s = situacao(cfg, estado, d, hoje)
+        if s == "completo":
+            linha += celula("ok", G_TROFEU)
+        elif s == "vazio":
+            linha += celula("contorno", "·")
+        elif d == hoje:
+            linha += celula("aviso", "○")
+        else:
+            linha += celula("contorno" if d < comeco else "erro", " " if d < comeco else G_ERRADO)
+    out += ["", linha, "",
+            "  " + p("suave", f"{G_CERTO} feita   {G_ERRADO} perdida   ○ pendente (hoje)   · sem missão no dia")]
+    print("\n".join(out))
+    return 0
+
+
+def cmd_widget(em_json):
+    """Uma linha para a barra. Nunca quebra a barra: em erro, devolve um texto de aviso."""
+    try:
+        cfg, _momento, hoje, estado = _contexto()
+    except ErroConfig as e:
+        aviso(str(e))
+        if em_json:
+            imprime_json({"texto": f"{G_ABERTA} ?", "texto_curto": "?", "dica": f"missao: {e}",
+                          "classe": "vazio", "feitas": 0, "total": 0, "glifo": ICONE_SHELL,
+                          "cor": COR_SHELL["vazio"], "erro": str(e)})
+        else:
+            print(f"{G_ABERTA} ?")
+        return 0
+    lista = do_dia(cfg, hoje)
+    feitas = feitas_em(estado, hoje)
+    n, total = sum(1 for m in lista if m["id"] in feitas), len(lista)
+    classe = "vazio" if total == 0 else "completo" if n == total else "pendente"
+    glifo = {"vazio": G_ABERTA, "completo": G_TROFEU, "pendente": G_FEITA}[classe]
+    texto = f"{glifo} {n}/{total}"
+    if not em_json:
+        print(texto)
+        return 0
+    seq, melhor = sequencias(cfg, estado, hoje)
+    dica = [f"Missões diárias · {DIAS_CURTOS[hoje.weekday()]} {hoje.day:02d}/{hoje.month:02d} · {n}/{total}"]
+    if not lista:
+        dica.append("Nenhuma missão agendada pra hoje.")
+    for m in lista:
+        dica.append(f"{G_FEITA if m['id'] in feitas else G_ABERTA} {m['titulo']}")
+    dica.append(f"{G_FOGO} Sequência: {dias_txt(seq)} (recorde: {dias_txt(melhor)})")
+    imprime_json({"texto": texto, "texto_curto": f"{n}/{total}", "dica": "\n".join(dica),
+                  "classe": classe, "feitas": n, "total": total, "sequencia": seq, "melhor": melhor,
+                  "glifo": ICONE_SHELL, "cor": COR_SHELL[classe]})
+    return 0
+
+
+# --------------------------------------------------------------- terminal
+class Terminal:
+    """Tela alternativa em modo cru, com restauracao garantida na saida.
+
+    Sinais (SIGWINCH, SIGTERM, SIGINT, SIGHUP) so escrevem num pipe que o
+    select vigia; quem trata e o laco principal, nunca o manipulador."""
+
+    CSI_FINAL = {ord("A"): "cima", ord("B"): "baixo", ord("H"): "inicio", ord("F"): "fim"}
+
+    def __init__(self, titulo):
+        self.titulo = titulo
+        self.ent = sys.stdin.fileno()
+        self.sai = sys.stdout.fileno()
+        self.antigo = None
+        self.sinais = {}
+        self.cano = None
+        self.ativa = False
+
+    def __enter__(self):
+        import signal
+        import termios
+        if not (os.isatty(self.ent) and os.isatty(self.sai)):
+            raise ErroUso("o painel precisa de um terminal de verdade (entrada e saída).")
+        self.antigo = termios.tcgetattr(self.ent)
+        try:
+            cru = termios.tcgetattr(self.ent)
+            cru[0] &= ~(termios.IXON | termios.ICRNL | termios.INLCR | termios.ISTRIP)
+            cru[3] &= ~(termios.ICANON | termios.ECHO | termios.ISIG | termios.IEXTEN)
+            cru[6][termios.VMIN] = 1
+            cru[6][termios.VTIME] = 0
+            termios.tcsetattr(self.ent, termios.TCSADRAIN, cru)
+            self.cano = os.pipe()
+            for fd in self.cano:
+                os.set_blocking(fd, False)
+            for nome in ("SIGWINCH", "SIGTERM", "SIGINT", "SIGHUP"):
+                num = getattr(signal, nome)
+                self.sinais[num] = signal.signal(num, self._sinal)
+            self.winch = signal.SIGWINCH
+            self.ativa = True
+            # tela alternativa, guarda e troca o titulo, some com o cursor, sem quebra automatica
+            self.escreve(f"\x1b[?1049h\x1b[22;0t\x1b]2;{self.titulo}\x07\x1b[?25l\x1b[?7l\x1b[2J")
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+        return self
+
+    def __exit__(self, *_exc):
+        import signal
+        import termios
+        if self.ativa:
+            self.ativa = False
+            try:
+                self.escreve("\x1b[0m\x1b[?7h\x1b[?25h\x1b[23;0t\x1b[?1049l")
+            except OSError:
+                pass
+        for num, antigo in self.sinais.items():
+            try:
+                signal.signal(num, antigo)
+            except (OSError, ValueError):
+                pass
+        self.sinais = {}
+        if self.antigo is not None:
+            try:
+                termios.tcsetattr(self.ent, termios.TCSAFLUSH, self.antigo)
+            except (OSError, termios.error):
+                pass
+            self.antigo = None
+        if self.cano:
+            for fd in self.cano:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            self.cano = None
+        return False
+
+    def _sinal(self, num, _quadro):
+        try:
+            os.write(self.cano[1], b"W" if num == self.winch else b"T")
+        except (OSError, TypeError):
+            pass
+
+    def escreve(self, texto):
+        dados = texto.encode("utf-8", "replace")
+        while dados:
+            try:
+                n = os.write(self.sai, dados)
+            except BlockingIOError:
+                import select
+                select.select([], [self.sai], [], 1)
+                continue
+            dados = dados[n:]
+
+    def tamanho(self):
+        try:
+            t = os.get_terminal_size(self.sai)
+            return max(1, t.columns), max(1, t.lines)
+        except OSError:
+            return 80, 24
+
+    def pinta(self, linhas):
+        """Desenha o quadro inteiro de uma vez (atualizacao sincronizada, sem piscar)."""
+        partes = ["\x1b[?2026h"]
+        for n, linha in enumerate(linhas, 1):
+            partes.append(f"\x1b[{n};1H{linha}\x1b[0m\x1b[K")
+        partes.append("\x1b[J\x1b[?2026l")
+        self.escreve("".join(partes))
+
+    def espera(self, segundos):
+        """Bloqueia ate ter tecla, sinal ou o tempo acabar. Devolve lista de eventos."""
+        import select
+        prontos, _, _ = select.select([self.ent, self.cano[0]], [], [], segundos)
+        eventos = []
+        if self.cano[0] in prontos:
+            try:
+                dados = os.read(self.cano[0], 256)
+            except OSError:
+                dados = b""
+            if b"T" in dados:
+                eventos.append("sinal")
+            if b"W" in dados:
+                eventos.append("tamanho")
+        if self.ent in prontos:
+            try:
+                dados = os.read(self.ent, 512)
+            except OSError:
+                dados = b""
+            if not dados:
+                eventos.append("sinal")          # o terminal foi embora
+            else:
+                eventos.extend(self._teclas(dados))
+        return eventos
+
+    def _mais(self):
+        """Resto de uma sequencia de escape que chegou partida."""
+        import select
+        if select.select([self.ent], [], [], 0.04)[0]:
+            try:
+                return os.read(self.ent, 64)
+            except OSError:
+                return b""
+        return b""
+
+    def _teclas(self, d):
+        out, i = [], 0
+        while i < len(d):
+            b = d[i]
+            if b == 0x1b:
+                if i + 1 >= len(d):
+                    resto = self._mais()
+                    if not resto:
+                        out.append("esc")
+                        break
+                    d += resto
+                    continue
+                if d[i + 1] in (0x5b, 0x4f):          # CSI ou SS3: setas, Home, End
+                    j = i + 2
+                    while j < len(d) and not 0x40 <= d[j] <= 0x7e:
+                        j += 1
+                    if j >= len(d):
+                        resto = self._mais()
+                        if not resto:
+                            break
+                        d += resto
+                        continue
+                    out.append(self.CSI_FINAL.get(d[j], "?"))
+                    i = j + 1
+                    continue
+                i += 2                                 # Alt+tecla: ignora
+                continue
+            if b in (0x0d, 0x0a):
+                out.append("enter")
+            elif b == 0x20:
+                out.append("espaco")
+            elif b == 0x03:
+                out.append("ctrl-c")
+            elif 0x21 <= b <= 0x7e:
+                out.append(chr(b).lower())
+            i += 1
+        return out
+
+
+# ----------------------------------------------------------------- painel
+class Painel:
+    """Janela de missoes: lista com cursor, barra de progresso e sequencia."""
+
+    def __init__(self, cor=True):
+        self.cor = cor
+        self.cursor = 0
+        self.rolagem = 0
+        self.msg = None                 # (papel, texto) temporario na linha de status
+        self.retema()
+        self.cfg = carrega_config()     # config quebrada aborta antes de mexer no terminal
+        self.atualiza()
+
+    # ---- dados
+    @staticmethod
+    def _marca(caminho):
+        try:
+            s = os.stat(caminho)
+            return s.st_mtime_ns, s.st_size, s.st_ino
+        except OSError:
+            return None
+
+    def _assinatura(self):
+        """Muda quando config, estado ou o dia das missoes mudam por fora."""
+        return (self._marca(caminho_config()), self._marca(arquivo_estado()),
+                dia_da_missao(agora(), self.cfg["virada"]))
+
+    def _assinatura_tema(self):
+        """Muda quando trocam de dominio ou regeneram o tokens.json em uso."""
+        marcas = []
+        for caminho in caminhos_tokens():
+            marcas.append(self._marca(caminho))
+            if marcas[-1]:
+                break
+        return tuple(marcas)
+
+    def atualiza(self):
+        self.momento = agora()
+        self.hoje = dia_da_missao(self.momento, self.cfg["virada"])
+        self.estado = carrega_estado()
+        self.lista = do_dia(self.cfg, self.hoje)
+        self.feitas = feitas_em(self.estado, self.hoje)
+        self.seq, self.recorde = sequencias(self.cfg, self.estado, self.hoje)
+        self.cursor = max(0, min(self.cursor, len(self.lista) - 1))
+        self.assin = self._assinatura()
+
+    def retema(self):
+        self.tema = Tema(self.cor)
+        self.assin_tema = self._assinatura_tema()
+
+    def tema_mudou(self):
+        return self._assinatura_tema() != self.assin_tema
+
+    def recarrega(self, avisar=False):
+        """Rele tema, config e estado. Config quebrada nao derruba o painel."""
+        self.retema()
+        try:
+            self.cfg = carrega_config()
+            self.msg = ("suave", "recarregado") if avisar else None
+        except ErroConfig as e:
+            self.msg = ("erro", f"{os.path.basename(caminho_config())}: {e.detalhe}")
+        self.atualiza()
+
+    def mudou_por_fora(self):
+        return self._assinatura() != self.assin
+
+    def alterna(self):
+        if not self.lista:
+            return
+        m = self.lista[self.cursor]
+        try:
+            _estado, _mud, celebrar = aplica(self.cfg, self.hoje, [m["id"]], "alternar")
+        except OSError as e:
+            self.msg = ("erro", f"não consegui gravar: {e.strerror or e}")
+            return
+        self.atualiza()
+        if celebrar:
+            celebra(self.tema, len(self.lista), self.seq)
+
+    # ---- desenho
+    def quadro(self, W, H):
+        t = self.tema
+        if W < 24 or H < 7:
+            return [corta("janela pequena", W)] + [corta("demais :(", W)] * (H > 1)
+        cx, borda, traco = t.caixa, t.fg("primaria"), t.fg("contorno")
+        iw = W - 2
+        mg = 2 if iw >= 36 else 1
+        cw = iw - 2 * mg
+
+        def linha(segs, fundo=""):
+            return f"{borda}{cx['v']}{compoe(t, segs, iw, fundo, mg)}{borda}{cx['v']}"
+
+        def divisa():
+            return f"{borda}{cx['te']}{t.rst}{traco}{cx['h'] * iw}{t.rst}{borda}{cx['td']}"
+
+        total = len(self.lista)
+        n = sum(1 for m in self.lista if m["id"] in self.feitas)
+        completo = total > 0 and n == total
+
+        virada = _aviso_virada(self.cfg, self.momento, self.hoje)
+        data = data_longa(self.hoje, ano=True) + (f" · {virada}" if virada else "")
+        cab = [
+            linha(lados([(t.fg("primaria", negrito=True), f"{t.glifo}  {t.titulo_missoes}")],
+                        [(t.fg("secundaria"), t.rotulo)], cw)),
+            linha(lados([(t.fg("suave"), data)], [(t.fg("suave", italico=True), t.lema)], cw)),
+        ]
+
+        pct = "%d%%" % round(100 * n / total) if total else "0%"
+        conta = f"{n}/{total}"
+        larg_barra = max(6, cw - larg(conta) - larg(pct) - 4)
+        prog = [linha(barra(t, n, total, larg_barra, "ok" if completo else "primaria")
+                      + [("", "  "), (t.fg("texto", negrito=True), conta), ("", "  "), (t.fg("suave"), pct)])]
+        fogo = [(t.fg("terciaria"), G_FOGO + " "), (t.fg("texto"), "sequência: " + dias_txt(self.seq))]
+        if self.msg:
+            status = [(t.fg(self.msg[0]), self.msg[1])]
+        elif completo:
+            status = lados([(t.fg("ok", negrito=True), G_TROFEU + " Tudo feito por hoje!")], fogo, cw)
+        else:
+            status = lados(fogo, [(t.fg("suave"), "recorde: " + dias_txt(self.recorde))], cw)
+        prog.append(linha(status))
+
+        tc, td = t.fg("primaria"), t.fg("suave")
+        teclas = [(tc, "↑↓"), (td, " mover   "), (tc, "espaço"), (td, " marcar   "),
+                  (tc, "r"), (td, " recarregar   "), (tc, "q"), (td, " sair")]
+        if sum(larg(x) for _, x in teclas) > cw:
+            teclas = [(tc, "↑↓"), (td, " "), (tc, "espaço"), (td, " "), (tc, "r"), (td, " "), (tc, "q"), (td, " sai")]
+        rod = [linha(teclas)]
+
+        # em janela baixa, abre mao do que e enfeite antes de espremer a lista
+        if H - (5 + len(cab) + len(prog) + len(rod)) < 1:
+            cab = cab[:1]
+        if H - (5 + len(cab) + len(prog) + len(rod)) < 1:
+            prog = prog[:1]
+        corpo_h = max(1, H - (5 + len(cab) + len(prog) + len(rod)))
+
+        corpo = []
+        if not self.lista:
+            vazio = "Nenhuma missão agendada pra hoje. Dia livre."
+            antes = max(0, (corpo_h - 1) // 2)
+            corpo += [linha([])] * antes
+            sobra = max(0, (cw - larg(vazio)) // 2)
+            corpo.append(linha([("", " " * sobra), (t.fg("suave"), vazio)]))
+        else:
+            topo = 1 if corpo_h >= total + 2 else 0
+            visiveis = corpo_h - topo
+            self.rolagem = max(0, min(self.rolagem, max(0, total - visiveis)))
+            if self.cursor < self.rolagem:
+                self.rolagem = self.cursor
+            elif self.cursor >= self.rolagem + visiveis:
+                self.rolagem = self.cursor - visiveis + 1
+            corpo += [linha([])] * topo
+            fim = min(total, self.rolagem + visiveis)
+            for i in range(self.rolagem, fim):
+                m = self.lista[i]
+                feita, aqui = m["id"] in self.feitas, i == self.cursor
+                seta = ""
+                if i == self.rolagem and self.rolagem > 0:
+                    seta = "↑"
+                elif i == fim - 1 and fim < total:
+                    seta = "↓"
+                esq = [(t.fg("primaria", negrito=True), "▸ " if aqui else "  "),
+                       (t.fg("ok") if feita else t.fg("suave"), (G_FEITA if feita else G_ABERTA) + "  "),
+                       (t.fg("suave" if feita else "texto", negrito=aqui and not feita),
+                        corta(m["titulo"], max(1, cw - 7)))]
+                corpo.append(linha(lados(esq, [(t.fg("suave"), seta)] if seta else [], cw),
+                                   t.bg("selecao") if aqui else ""))
+        corpo += [linha([])] * (corpo_h - len(corpo))
+
+        topo_cx = f"{borda}{cx['se']}{cx['h'] * iw}{cx['sd']}"
+        base_cx = f"{borda}{cx['ie']}{cx['h'] * iw}{cx['id']}"
+        return [topo_cx, *cab, divisa(), *corpo[:corpo_h], divisa(), *prog, divisa(), *rod, base_cx][:H]
+
+    # ---- laco
+    def roda(self):
+        with Terminal(TITULO) as term:
+            sujo = True
+            while True:
+                if sujo:
+                    term.pinta(self.quadro(*term.tamanho()))
+                    sujo = False
+                eventos = term.espera(ESPERA_TUI_S)
+                if self.tema_mudou():
+                    self.retema()        # trocaram de dominio: so as cores mudam
+                    sujo = True
+                if self.mudou_por_fora():
+                    # config editada, estado mexido por fora ou virada do dia: mostra o
+                    # quadro novo antes de aceitar tecla dada em cima do antigo
+                    self.recarrega(avisar="r" in eventos)
+                    sujo = True
+                    eventos = [e for e in eventos if e in ("sinal", "tamanho", "q", "esc", "ctrl-c")]
+                for ev in eventos:
+                    if ev in ("sinal", "q", "esc", "ctrl-c"):
+                        return 0
+                    if ev == "tamanho":
+                        sujo = True
+                        continue
+                    if ev == "?":
+                        continue
+                    self.msg = None
+                    sujo = True
+                    if ev in ("cima", "k"):
+                        self.cursor = max(0, self.cursor - 1)
+                    elif ev in ("baixo", "j"):
+                        self.cursor = min(max(0, len(self.lista) - 1), self.cursor + 1)
+                    elif ev == "inicio":
+                        self.cursor = 0
+                    elif ev == "fim":
+                        self.cursor = max(0, len(self.lista) - 1)
+                    elif ev in ("espaco", "enter"):
+                        self.alterna()
+                    elif ev == "r":
+                        self.recarrega(avisar=True)
+
+
+# ----------------------------------------------------------------- janela
+def _argv_de(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            bruto = f.read()
+    except OSError:
+        return None
+    if NOME.encode() not in bruto:
+        return None
+    return [a.decode("utf-8", "replace") for a in bruto.split(b"\0") if a]
+
+
+def tuis_vivos():
+    """PIDs dos processos que sao este painel rodando (python <este script> tui)."""
+    achados, eu = [], os.getpid()
+    try:
+        nomes = os.listdir("/proc")
+    except OSError:
+        return achados
+    for nome in nomes:
+        if not nome.isdigit() or int(nome) == eu:
+            continue
+        argv = _argv_de(nome)
+        if not argv or len(argv) < 3 or argv[2] != "tui" or os.path.basename(argv[1]) != NOME \
+                or not os.path.basename(argv[0]).startswith("python"):
+            continue
+        caminho = argv[1]
+        if not os.path.isabs(caminho):
+            try:
+                caminho = os.path.join(os.readlink(f"/proc/{nome}/cwd"), caminho)
+            except OSError:
+                continue
+        if os.path.realpath(caminho) == EU:
+            achados.append(int(nome))
+    return achados
+
+
+def _ancestrais(pid):
+    """O pid e os pais dele, subindo por /proc/<pid>/stat."""
+    cadeia = []
+    while pid > 1 and pid not in cadeia and len(cadeia) < 64:
+        cadeia.append(pid)
+        try:
+            with open(f"/proc/{pid}/stat", "rb") as f:
+                pid = int(f.read().rsplit(b")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+    return cadeia
+
+
+def _niri(*args):
+    """Roda `niri msg ...` se houver compositor. Devolve a saida ou None."""
+    if not os.environ.get("NIRI_SOCKET") or not qual("niri"):
+        return None
+    import subprocess
+    try:
+        r = subprocess.run(["niri", "msg", *args], capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def _janelas_niri():
+    """Janelas abertas segundo o niri, ou None se nao deu para perguntar."""
+    saida = _niri("--json", "windows")
+    if saida is None:
+        return None
+    import json
+    try:
+        janelas = json.loads(saida)
+    except ValueError:
+        return None
+    return [j for j in janelas if isinstance(j, dict)] if isinstance(janelas, list) else None
+
+
+def painel_aberto():
+    """(aberto, id da janela no niri ou None).
+
+    Com niri, quem decide e a janela: app-id do painel e o titulo que o TUI poe.
+    Se o terminal nao repassar o titulo, vale a janela do painel cujo processo e
+    pai de um TUI vivo. Sem niri para perguntar, basta existir um TUI rodando."""
+    tuis = tuis_vivos()
+    janelas = _janelas_niri()
+    if janelas is None:
+        return bool(tuis), None
+    nossas = [j for j in janelas if j.get("app_id") == CLASSE]
+    for j in nossas:
+        if j.get("title") == TITULO:
+            return True, j.get("id")
+    if tuis:
+        parentes = {p for t in tuis for p in _ancestrais(t)}
+        for j in nossas:
+            if j.get("pid") in parentes and j.get("title") not in OUTROS_PAINEIS:
+                return True, j.get("id")
+    return False, None
+
+
+def cmd_painel():
+    """Abre o painel numa janela flutuante, uma so por vez."""
+    import fcntl
+    import time
+    lancador = os.environ.get("DOMINIOS_TERMINAL") or os.path.join(AQUI, "terminal")
+    trava = os.open(EU, os.O_RDONLY)
+    try:
+        try:
+            fcntl.flock(trava, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("o painel de missões já está abrindo.")
+            return 0
+        aberto, janela = painel_aberto()
+        if aberto:
+            if janela is not None:
+                _niri("action", "focus-window", "--id", str(janela))
+            print("o painel de missões já está aberto.")
+            return 0
+        if not os.access(lancador, os.X_OK):
+            raise ErroUso(f"não achei o lançador de terminal em {curto(lancador)}.")
+        antes = len(tuis_vivos())
+        com_niri = _janelas_niri() is not None
+        solta([lancador, "--class", CLASSE, "-e", os.path.join(AQUI, NOME), "tui"])
+        # segura a trava ate o painel existir, pra um segundo atalho nao abrir outro
+        limite = time.monotonic() + 4
+        while time.monotonic() < limite:
+            time.sleep(0.1)
+            if painel_aberto()[0] if com_niri else len(tuis_vivos()) > antes:
+                break
+        return 0
+    finally:
+        os.close(trava)
+
+
+# ------------------------------------------------------------------- main
+def main(argv):
+    for fluxo in (sys.stdout, sys.stderr):
+        try:
+            fluxo.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    args = [a for a in argv if a not in ("--cor", "--sem-cor", "--json")]
+    em_json = "--json" in argv
+    if "--sem-cor" in argv or (os.environ.get("NO_COLOR") and "--cor" not in argv):
+        cor = False
+    else:
+        cor = "--cor" in argv or sys.stdout.isatty()
+    cmd, resto = (args[0], args[1:]) if args else ("lista", [])
+    try:
+        if cmd in ("-h", "--help", "ajuda", "help"):
+            print(__doc__.strip())
+            return 0
+        if cmd == "widget":
+            return cmd_widget(em_json)
+        if cmd in ("lista", "hoje", "ls"):
+            return cmd_lista(cor, em_json)
+        if cmd in ("feito", "desfeito", "alternar"):
+            return cmd_marcar(cor, cmd, resto, em_json)
+        if cmd in ("sequencia", "sequência"):
+            return cmd_sequencia(Tema(cor))
+        if cmd == "semana":
+            return cmd_semana(Tema(cor))
+        if cmd == "tui":
+            return Painel(cor="--sem-cor" not in argv and not os.environ.get("NO_COLOR")).roda()
+        if cmd == "painel":
+            return cmd_painel()
+        raise ErroUso(f"comando desconhecido '{cmd}'. Veja `missao ajuda`.")
+    except (ErroConfig, ErroUso) as e:
+        aviso(str(e))
+        if em_json:
+            imprime_json({"erro": str(e)})       # quem le JSON recebe JSON ate no erro
+        return 2 if isinstance(e, ErroConfig) else 1
+    except BrokenPipeError:
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except OSError:
+            pass
+        return 0
+    except OSError as e:
+        onde = f" ({curto(e.filename)})" if e.filename else ""
+        aviso(f"erro de arquivo: {e.strerror or e}{onde}")
+        if em_json:
+            imprime_json({"erro": f"erro de arquivo: {e.strerror or e}"})
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

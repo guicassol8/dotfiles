@@ -1,0 +1,66 @@
+// Dominio {{nome}} (modo apresentacao). Gerado por `dominio construir` a partir de
+// modelos/_por_dominio/neutro/niri.kdl, que substitui o modelo geral: anel fino de uma
+// cor so, sombra preta comum, sem halo, sem desfoque e sem animacao propria (valem as
+// animacoes do teu cfg/animation.kdl).
+
+layout {
+    gaps {{forma.vaos}}
+
+    focus-ring {
+        on
+        width {{forma.borda}}
+        active-gradient from="{{cor.primaria}}" to="{{cor.primaria}}"
+        inactive-color "{{cor.contorno}}"
+        urgent-color "{{cor.erro}}"
+    }
+
+    border {
+        off
+    }
+
+    shadow {
+        on
+        softness 30
+        spread 5
+        offset x=0 y=5
+        draw-behind-window false
+        color "#00000070"
+        inactive-color "#00000050"
+    }
+
+    tab-indicator {
+        on
+        hide-when-single-tab
+        place-within-column
+        gap 6
+        width 4
+        length total-proportion=0.6
+        position "left"
+        gaps-between-tabs 4
+        corner-radius {{forma.raio}}
+        active-color "{{cor.primaria}}"
+        inactive-color "{{cor.contorno}}"
+        urgent-color "{{cor.erro}}"
+    }
+
+    insert-hint {
+        on
+        gradient from="{{cor.primaria|alfa:0.45}}" to="{{cor.primaria|alfa:0.45}}"
+    }
+}
+
+overview {
+    backdrop-color "{{cor.fundo}}"
+    workspace-shadow {
+        softness 40
+        spread 10
+        offset x=0 y=10
+        color "#00000050"
+    }
+}
+
+window-rule {
+    geometry-corner-radius {{forma.raio}}
+    clip-to-geometry true
+    draw-border-with-background false
+}

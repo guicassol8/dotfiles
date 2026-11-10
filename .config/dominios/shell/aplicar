@@ -1,0 +1,29 @@
+#!/bin/sh
+# Aplica o dominio no shell: fragmento de config, paleta e papel de parede.
+# Chamado por `dominio expandir` com o nome do dominio.
+d="$1"
+R="$HOME/.config/dominios"
+papel="$R/papeis/$d.png"
+if noctalia msg status >/dev/null 2>&1; then
+    E="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/settings.toml"
+    # 1) Paleta e papel de parede primeiro. Cada um desses comandos faz o Noctalia
+    #    regravar o settings.toml inteiro a partir da memoria dele, com os widgets do
+    #    dominio ANTERIOR junto. Por isso vem antes da limpeza, nunca depois.
+    #    (O que a janela de Configuracoes grava vence os arquivos: garante a paleta.)
+    [ "$(noctalia msg color-scheme-get 2>/dev/null)" = "custom dominio-$d" ] ||
+        noctalia msg color-scheme-set custom "dominio-$d" >/dev/null 2>&1
+    [ -r "$papel" ] && noctalia msg wallpaper-set "$papel" >/dev/null 2>&1
+    # 2) O Noctalia copia os widgets de mesa e da tela de bloqueio para o settings.toml
+    #    dele, e essa copia vence os arquivos: sem tirar daqui, os widgets do dominio
+    #    anterior ficariam para sempre. Tira e recarrega; ele copia de novo, agora os do
+    #    dominio certo. (Efeito: posicao ajustada pelo editor grafico nao sobrevive a
+    #    troca de dominio; para mudar de vez, edita modelos/.)
+    if [ -f "$E" ] && grep -qE '^\[(desktop_widgets|lockscreen_widgets)\]' "$E"; then
+        awk '/^\[(desktop_widgets|lockscreen_widgets)\]/ {pula=1; next} /^\[/ {pula=0} !pula {print}' "$E" > "$E.dominios.tmp" &&
+            mv -f "$E.dominios.tmp" "$E"
+    fi
+    noctalia msg config-reload >/dev/null 2>&1
+    noctalia msg plugin local/dominios:comando all refresh >/dev/null 2>&1
+    noctalia msg plugin local/dominios:mesa all refresh >/dev/null 2>&1
+fi
+exit 0

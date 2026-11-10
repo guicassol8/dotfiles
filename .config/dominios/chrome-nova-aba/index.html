@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova aba</title>
+<link rel="stylesheet" href="estilo.css">
+<script src="nova-aba.js"></script>
+</head>
+<body>
+<div class="papel" id="papel" aria-hidden="true"></div>
+<div class="veu" aria-hidden="true"></div>
+<main>
+  <p class="rotulo" id="rotulo"></p>
+  <h1 class="relogio" id="relogio" aria-live="off"></h1>
+  <p class="data" id="data"></p>
+  <form class="busca" id="busca" role="search" autocomplete="off">
+    <svg class="lupa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+    <input id="q" name="q" type="text" inputmode="search" enterkeyhint="search" autofocus
+           spellcheck="false" autocapitalize="off" aria-label="Buscar na web"
+           placeholder="Busca aí ou digita um endereço">
+  </form>
+  <p class="lema" id="lema"></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Domínios: Nova Aba",
+  "short_name": "Domínios",
+  "description": "Nova aba com o papel de parede, o relógio e as cores do domínio ativo no desktop.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "111",
+  "chrome_url_overrides": { "newtab": "index.html" },
+  "permissions": ["search"]
+}

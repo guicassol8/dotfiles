@@ -1,0 +1,23 @@
+# Sistema: linha de status entre colchetes, como as janelas do Sistema
+format = """[\\[](contorno)$directory[\\]](contorno)$git_branch$git_status$jobs$fill$nodejs$python$rust$cmd_duration
+$character"""
+
+[fill]
+symbol = " "
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+read_only = " 󰌾"
+format = "[ $path]($style)[$read_only]($read_only_style) "
+style = "bold primaria"
+
+[git_branch]
+symbol = " "
+format = " [$symbol$branch]($style) "
+style = "secundaria"
+
+[character]
+success_symbol = "[❯](bold primaria)"
+error_symbol = "[❯](bold erro)"
+vimcmd_symbol = "[❮](bold terciaria)"

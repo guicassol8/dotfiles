@@ -1,0 +1,509 @@
+/**
+ * @name Domínio: {{nome}}
+ * @author Domínios
+ * @version 1.0.0
+ * @description {{lema}} Cores, fontes e cantos do domínio ativo. Gerado por `dominio construir`: muda no dominios.toml, não aqui.
+ */
+
+/* Dominio {{nome}} para Discord (Vesktop/Vencord). Gerado de modelos/discord.css.
+   So variaveis e seletores estaveis (nada de classe com hash, que o Discord troca
+   a cada versao). Blocos: fontes e cantos, variaveis novas (visual refresh),
+   variaveis antigas, e por fim selecao e blocos de codigo. */
+
+/* ------------------------------------------------------- fontes e cantos */
+:root,
+body {
+    --font-primary: "{{fonte.ui}}", system-ui, sans-serif;
+    --font-display: "{{fonte.destaque}}", "{{fonte.ui}}", system-ui, sans-serif;
+    --font-headline: "{{fonte.destaque}}", "{{fonte.ui}}", system-ui, sans-serif;
+    --font-code: "{{fonte.mono}}", "{{fonte.mono_reserva}}", monospace;
+
+    --radius-xs: {{forma.raio|vezes:0.33}}px;
+    --radius-sm: {{forma.raio|vezes:0.6}}px;
+    --radius-md: {{forma.raio|vezes:0.85}}px;
+    --radius-lg: {{forma.raio|vezes:1.15}}px;
+    --radius-xl: {{forma.raio|vezes:1.6}}px;
+    --radius-xxl: {{forma.raio|vezes:2.2}}px;
+}
+
+/* ----------------------------------------------------------------- cores */
+body,
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme),
+.theme-light:not(.custom-user-profile-theme) {
+    color-scheme: dark;
+
+    /* fundos: conversa no fundo do dominio, laterais e moldura na superficie */
+    --background-base-low: {{cor.fundo}};
+    --background-base-lower: {{cor.superficie}};
+    --background-base-lowest: {{cor.superficie}};
+    --home-background: {{cor.fundo}};
+    --app-frame-background: {{cor.superficie}};
+    --app-frame-border: {{cor.contorno|alfa:0.5}};
+    --background-surface-high: {{cor.superficie2}};
+    --background-surface-higher: {{cor.superficie2|mistura:cor.contorno:0.25}};
+    --background-surface-highest: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --bg-surface-raised: {{cor.superficie2}};
+    --bg-surface-overlay-tmp: {{cor.superficie2}};
+    --background-secondary-alt: {{cor.superficie}};
+    --background-accent: {{cor.superficie2}};
+    --background-brand: {{cor.primaria}};
+    --background-mod-muted: {{cor.texto|alfa:0.04}};
+    --background-mod-subtle: {{cor.texto|alfa:0.06}};
+    --background-mod-normal: {{cor.texto|alfa:0.1}};
+    --background-mod-strong: {{cor.texto|alfa:0.16}};
+    --background-scrim: {{cor.fundo|escuro:0.6|alfa:0.75}};
+    --background-scrim-lightbox: {{cor.fundo|escuro:0.6|alfa:0.92}};
+    --background-code: {{cor.superficie}};
+    --background-code-addition: {{cor.ok|alfa:0.2}};
+    --background-code-deletion: {{cor.erro|alfa:0.2}};
+    --background-feedback-critical: {{cor.erro|alfa:0.15}};
+    --background-feedback-warning: {{cor.aviso|alfa:0.15}};
+    --background-feedback-positive: {{cor.ok|alfa:0.15}};
+    --background-feedback-info: {{ansi.ciano|alfa:0.15}};
+    --background-feedback-notification: {{cor.erro}};
+    --card-background-default: {{cor.superficie2}};
+    --modal-background: {{cor.superficie}};
+    --modal-footer-background: {{cor.superficie2}};
+    --chat-background-default: {{cor.superficie}};
+    --channeltextarea-background: {{cor.superficie}};
+    --channel-text-area-placeholder: {{cor.texto_suave|alfa:0.7}};
+    --chat-text-muted: {{cor.texto_suave|mistura:cor.fundo:0.3}};
+    --embed-background: {{cor.superficie}};
+    --embed-background-alternate: {{cor.superficie2}};
+    --user-profile-overlay-background: {{cor.superficie}};
+    --user-profile-overlay-background-hover: {{cor.texto|alfa:0.06}};
+    --user-profile-background-hover: {{cor.texto|alfa:0.06}};
+    --user-profile-note-background-focus: {{cor.fundo}};
+    --user-profile-toolbar-background: {{cor.superficie2}};
+    --user-profile-toolbar-border: {{cor.contorno}};
+    --user-profile-border: {{cor.contorno}};
+
+    /* contornos */
+    --border-muted: {{cor.contorno|alfa:0.3}};
+    --border-subtle: {{cor.contorno|alfa:0.55}};
+    --border-normal: {{cor.contorno}};
+    --border-strong: {{cor.contorno|claro:0.15}};
+    --border-focus: {{cor.primaria}};
+    --border-feedback-critical: {{cor.erro}};
+    --spine-default: {{cor.contorno}};
+
+    /* texto e icones */
+    --text-default: {{cor.texto}};
+    --text-strong: {{ansi.branco_claro}};
+    --text-subtle: {{cor.texto_suave}};
+    --text-muted: {{cor.texto_suave|mistura:cor.fundo:0.3}};
+    --text-link: {{cor.secundaria}};
+    --text-brand: {{cor.primaria}};
+    --text-overlay-light: {{ansi.branco_claro}};
+    --text-feedback-critical: {{cor.erro}};
+    --text-feedback-warning: {{cor.aviso}};
+    --text-feedback-positive: {{cor.ok}};
+    --text-feedback-info: {{ansi.ciano}};
+    --text-status-online: {{cor.ok}};
+    --text-status-idle: {{cor.aviso}};
+    --text-status-dnd: {{cor.erro}};
+    --text-status-offline: {{cor.texto_suave|mistura:cor.fundo:0.3}};
+    --textbox-markdown-syntax: {{cor.texto_suave}};
+    --app-message-embed-secondary-text: {{cor.texto_suave}};
+    --icon-default: {{cor.texto_suave}};
+    --icon-strong: {{cor.texto}};
+    --icon-subtle: {{cor.texto_suave}};
+    --icon-muted: {{cor.texto_suave|mistura:cor.fundo:0.35}};
+    --icon-link: {{cor.secundaria}};
+    --icon-feedback-critical: {{cor.erro}};
+    --icon-feedback-warning: {{cor.aviso}};
+    --icon-feedback-positive: {{cor.ok}};
+    --icon-feedback-info: {{ansi.ciano}};
+    --icon-status-online: {{cor.ok}};
+    --icon-status-idle: {{cor.aviso}};
+    --icon-status-dnd: {{cor.erro}};
+    --icon-status-offline: {{cor.texto_suave|mistura:cor.fundo:0.3}};
+    --icon-voice-muted: {{cor.erro}};
+    --channel-icon: {{cor.texto_suave}};
+    --channels-default: {{cor.texto_suave}};
+
+    /* itens clicaveis (canais, abas, linhas de lista) */
+    --interactive-text-default: {{cor.texto_suave}};
+    --interactive-text-hover: {{cor.texto}};
+    --interactive-text-active: {{ansi.branco_claro}};
+    --interactive-icon-default: {{cor.texto_suave}};
+    --interactive-icon-hover: {{cor.texto}};
+    --interactive-icon-active: {{ansi.branco_claro}};
+    --interactive-muted: {{cor.texto_suave|mistura:cor.fundo:0.45}};
+    --interactive-background-hover: {{cor.primaria|alfa:0.1}};
+    --interactive-background-active: {{cor.primaria|alfa:0.16}};
+    --interactive-background-selected: {{cor.primaria|alfa:0.18}};
+    --message-background-hover: {{cor.texto|alfa:0.03}};
+
+    /* marca: tudo que era blurple vira a primaria do dominio */
+    --brand-260: {{cor.primaria|claro:0.4}};
+    --brand-300: {{cor.primaria|claro:0.3}};
+    --brand-330: {{cor.primaria|claro:0.25}};
+    --brand-345: {{cor.primaria|claro:0.2}};
+    --brand-360: {{cor.primaria|claro:0.15}};
+    --brand-400: {{cor.primaria|claro:0.1}};
+    --brand-430: {{cor.primaria|claro:0.05}};
+    --brand-460: {{cor.primaria}};
+    --brand-500: {{cor.primaria}};
+    --brand-530: {{cor.primaria|escuro:0.08}};
+    --brand-560: {{cor.primaria|escuro:0.15}};
+    --brand-600: {{cor.primaria|escuro:0.22}};
+    --brand-630: {{cor.primaria|escuro:0.3}};
+    --brand-660: {{cor.primaria|escuro:0.38}};
+    --brand-700: {{cor.primaria|escuro:0.46}};
+    --blurple-50: {{cor.primaria}};
+    --control-brand-foreground: {{cor.primaria}};
+    --control-brand-foreground-new: {{cor.primaria}};
+
+    /* botoes */
+    --control-primary-background-default: {{cor.primaria}};
+    --control-primary-background-hover: {{cor.primaria|claro:0.12}};
+    --control-primary-background-active: {{cor.primaria|escuro:0.12}};
+    --control-primary-border-default: {{cor.primaria|alfa:0}};
+    --control-primary-border-hover: {{cor.primaria|alfa:0}};
+    --control-primary-border-active: {{cor.primaria|alfa:0}};
+    --control-primary-text-default: {{cor.sobre_primaria}};
+    --control-primary-text-hover: {{cor.sobre_primaria}};
+    --control-primary-text-active: {{cor.sobre_primaria}};
+    --control-primary-icon-default: {{cor.sobre_primaria}};
+    --control-primary-icon-hover: {{cor.sobre_primaria}};
+    --control-primary-icon-active: {{cor.sobre_primaria}};
+    --control-secondary-background-default: {{cor.superficie2}};
+    --control-secondary-background-hover: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --control-secondary-background-active: {{cor.contorno}};
+    --control-secondary-border-default: {{cor.contorno|alfa:0.6}};
+    --control-secondary-border-hover: {{cor.contorno}};
+    --control-secondary-border-active: {{cor.contorno}};
+    --control-secondary-text-default: {{cor.texto}};
+    --control-secondary-text-hover: {{cor.texto}};
+    --control-secondary-text-active: {{cor.texto}};
+    --control-secondary-icon-default: {{cor.texto}};
+    --control-secondary-icon-hover: {{cor.texto}};
+    --control-secondary-icon-active: {{cor.texto}};
+    --control-critical-primary-background-default: {{cor.erro}};
+    --control-critical-primary-background-hover: {{cor.erro|claro:0.12}};
+    --control-critical-primary-background-active: {{cor.erro|escuro:0.12}};
+    --control-critical-primary-border-default: {{cor.erro|alfa:0}};
+    --control-critical-primary-border-hover: {{cor.erro|alfa:0}};
+    --control-critical-primary-border-active: {{cor.erro|alfa:0}};
+    --control-critical-primary-text-default: {{cor.sobre_erro}};
+    --control-critical-primary-text-hover: {{cor.sobre_erro}};
+    --control-critical-primary-text-active: {{cor.sobre_erro}};
+    --control-critical-primary-icon-default: {{cor.sobre_erro}};
+    --control-critical-primary-icon-hover: {{cor.sobre_erro}};
+    --control-critical-primary-icon-active: {{cor.sobre_erro}};
+    --control-critical-secondary-background-default: {{cor.superficie2}};
+    --control-critical-secondary-background-hover: {{cor.superficie2|mistura:cor.erro:0.18}};
+    --control-critical-secondary-background-active: {{cor.superficie2|mistura:cor.erro:0.28}};
+    --control-critical-secondary-border-default: {{cor.contorno|alfa:0.6}};
+    --control-critical-secondary-border-hover: {{cor.erro|alfa:0.6}};
+    --control-critical-secondary-border-active: {{cor.erro|alfa:0.6}};
+    --control-critical-secondary-text-default: {{cor.erro}};
+    --control-critical-secondary-text-hover: {{cor.erro}};
+    --control-critical-secondary-text-active: {{cor.erro}};
+    --control-critical-secondary-icon-default: {{cor.erro}};
+    --control-critical-secondary-icon-hover: {{cor.erro}};
+    --control-critical-secondary-icon-active: {{cor.erro}};
+    --control-connect-background-default: {{cor.ok}};
+    --control-connect-background-hover: {{cor.ok|claro:0.15}};
+    --control-connect-background-active: {{cor.ok|escuro:0.12}};
+    --control-connect-border-default: {{cor.ok|alfa:0}};
+    --control-connect-border-hover: {{cor.ok|alfa:0}};
+    --control-connect-border-active: {{cor.ok|alfa:0}};
+    --control-connect-text-default: {{cor.fundo}};
+    --control-connect-text-hover: {{cor.fundo}};
+    --control-connect-text-active: {{cor.fundo}};
+    --control-connect-icon-default: {{cor.fundo}};
+    --control-connect-icon-hover: {{cor.fundo}};
+    --control-connect-icon-active: {{cor.fundo}};
+    --control-expressive-background-default: {{cor.texto}};
+    --control-expressive-background-hover: {{ansi.branco_claro}};
+    --control-expressive-background-active: {{cor.texto|escuro:0.12}};
+    --control-expressive-text-default: {{cor.fundo}};
+    --control-expressive-text-hover: {{cor.fundo}};
+    --control-expressive-text-active: {{cor.fundo}};
+    --control-expressive-icon-default: {{cor.fundo}};
+    --control-expressive-icon-hover: {{cor.fundo}};
+    --control-expressive-icon-active: {{cor.fundo}};
+    --control-overlay-primary-background-default: {{cor.texto}};
+    --control-overlay-primary-background-hover: {{ansi.branco_claro}};
+    --control-overlay-primary-background-active: {{cor.texto|escuro:0.12}};
+    --control-overlay-primary-text-default: {{cor.fundo}};
+    --control-overlay-primary-text-hover: {{cor.fundo}};
+    --control-overlay-primary-text-active: {{cor.fundo}};
+    --control-overlay-primary-icon-default: {{cor.fundo}};
+    --control-overlay-primary-icon-hover: {{cor.fundo}};
+    --control-overlay-primary-icon-active: {{cor.fundo}};
+    --control-overlay-secondary-background-default: {{cor.fundo|alfa:0.55}};
+    --control-overlay-secondary-background-hover: {{cor.fundo|alfa:0.7}};
+    --control-overlay-secondary-background-active: {{cor.fundo|alfa:0.8}};
+    --control-overlay-secondary-text-default: {{cor.texto}};
+    --control-overlay-secondary-text-hover: {{cor.texto}};
+    --control-overlay-secondary-text-active: {{cor.texto}};
+    --control-overlay-secondary-icon-default: {{cor.texto}};
+    --control-overlay-secondary-icon-hover: {{cor.texto}};
+    --control-overlay-secondary-icon-active: {{cor.texto}};
+    --control-icon-only-background-hover: {{cor.texto|alfa:0.08}};
+    --control-icon-only-background-active: {{cor.primaria|alfa:0.16}};
+    --control-icon-only-icon-default: {{cor.texto_suave}};
+    --control-icon-only-icon-hover: {{cor.texto}};
+    --control-icon-only-icon-active: {{cor.primaria}};
+    --redesign-button-secondary-background: {{cor.superficie2}};
+    --redesign-button-secondary-pressed-background: {{cor.contorno}};
+    --redesign-button-secondary-text: {{cor.texto}};
+    --redesign-button-overlay-alpha-background: {{cor.fundo|alfa:0.55}};
+    --redesign-button-overlay-alpha-pressed-background: {{cor.fundo|alfa:0.75}};
+    --redesign-button-overlay-alpha-text: {{cor.texto}};
+    --button-outline-primary-text: {{cor.texto}};
+
+    /* campos, caixas de marcar, chaves e barras */
+    --input-background-default: {{cor.superficie}};
+    --input-background-error-default: {{cor.erro|alfa:0.1}};
+    --input-border-default: {{cor.contorno}};
+    --input-border-hover: {{cor.contorno|claro:0.15}};
+    --input-border-active: {{cor.primaria}};
+    --input-border-error-default: {{cor.erro}};
+    --input-text-default: {{cor.texto}};
+    --input-text-error-default: {{cor.texto}};
+    --input-placeholder-text-default: {{cor.texto_suave|alfa:0.7}};
+    --checkbox-background-default: {{cor.superficie2}};
+    --checkbox-background-hover: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --checkbox-background-selected-default: {{cor.primaria}};
+    --checkbox-background-selected-hover: {{cor.primaria|claro:0.12}};
+    --checkbox-border-default: {{cor.contorno}};
+    --checkbox-border-hover: {{cor.contorno|claro:0.15}};
+    --checkbox-border-active: {{cor.primaria}};
+    --checkbox-border-selected-default: {{cor.primaria}};
+    --checkbox-border-selected-hover: {{cor.primaria|claro:0.12}};
+    --checkbox-icon-active: {{cor.sobre_primaria}};
+    --radio-background-default: {{cor.superficie2}};
+    --radio-background-hover: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --radio-background-active: {{cor.contorno}};
+    --radio-background-selected-default: {{cor.primaria}};
+    --radio-background-selected-hover: {{cor.primaria|claro:0.12}};
+    --radio-border-default: {{cor.contorno}};
+    --radio-border-hover: {{cor.contorno|claro:0.15}};
+    --radio-border-active: {{cor.primaria}};
+    --radio-border-selected-default: {{cor.primaria}};
+    --radio-border-selected-hover: {{cor.primaria|claro:0.12}};
+    --radio-thumb-background-active: {{cor.sobre_primaria}};
+    --switch-background-default: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --switch-background-hover: {{cor.contorno}};
+    --switch-background-selected-default: {{cor.primaria}};
+    --switch-background-selected-hover: {{cor.primaria|claro:0.12}};
+    --switch-border-default: {{cor.contorno}};
+    --switch-border-hover: {{cor.contorno|claro:0.15}};
+    --switch-border-selected-default: {{cor.primaria}};
+    --switch-border-selected-hover: {{cor.primaria|claro:0.12}};
+    --switch-thumb-background-default: {{cor.texto}};
+    --switch-thumb-background-selected-default: {{cor.sobre_primaria}};
+    --slider-track-background: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --progressbar-track-background: {{cor.superficie2}};
+    --progressbar-indicator-background: {{cor.primaria}};
+    --gradient-progress-pill-background: {{cor.contorno}};
+    --scrollbar-auto-thumb: {{cor.contorno}};
+    --scrollbar-auto-track: {{cor.fundo|alfa:0}};
+    --scrollbar-thin-thumb: {{cor.contorno}};
+    --scrollbar-thin-track: {{cor.fundo|alfa:0}};
+    --scrollbar-auto-scrollbar-color-thumb: {{cor.contorno}};
+    --scrollbar-auto-scrollbar-color-track: {{cor.fundo|alfa:0}};
+
+    /* mencoes, reacoes, selos e avisos */
+    --mention-foreground: {{cor.primaria}};
+    --mention-background: {{cor.primaria|alfa:0.18}};
+    --message-mentioned-background-default: {{cor.terciaria|alfa:0.1}};
+    --message-mentioned-background-hover: {{cor.terciaria|alfa:0.14}};
+    --message-highlight-background-default: {{cor.secundaria|alfa:0.1}};
+    --message-highlight-background-hover: {{cor.secundaria|alfa:0.14}};
+    --message-reacted-background-default: {{cor.primaria|alfa:0.18}};
+    --message-reacted-text-default: {{cor.primaria|claro:0.3}};
+    --reaction-background-default: {{cor.texto|alfa:0.06}};
+    --reaction-background-hover: {{cor.texto|alfa:0.1}};
+    --reaction-background-active: {{cor.texto|alfa:0.14}};
+    --reaction-background-reacted-default: {{cor.primaria|alfa:0.18}};
+    --reaction-background-reacted-hover: {{cor.primaria|alfa:0.26}};
+    --reaction-border-default: {{cor.contorno|alfa:0.5}};
+    --reaction-border-hover: {{cor.contorno}};
+    --reaction-border-active: {{cor.contorno}};
+    --reaction-border-reacted-default: {{cor.primaria|alfa:0.7}};
+    --reaction-text-default: {{cor.texto_suave}};
+    --reaction-text-hover: {{cor.texto}};
+    --reaction-text-active: {{cor.texto}};
+    --reaction-text-reacted-default: {{cor.primaria|claro:0.3}};
+    --badge-background-default: {{cor.primaria}};
+    --badge-text-default: {{cor.sobre_primaria}};
+    --badge-expressive-background-default: {{cor.primaria}};
+    --badge-expressive-text-default: {{cor.sobre_primaria}};
+    --badge-notification-background: {{cor.erro}};
+    --notice-background-critical: {{cor.erro}};
+    --notice-background-warning: {{cor.aviso}};
+    --notice-background-positive: {{cor.ok}};
+    --notice-background-info: {{cor.primaria}};
+    --notice-text-critical: {{cor.sobre_erro}};
+    --notice-text-warning: {{cor.fundo}};
+    --notice-text-positive: {{cor.fundo}};
+    --notice-text-info: {{cor.sobre_primaria}};
+    --polls-victor-fill: {{cor.ok|alfa:0.15}};
+    --polls-voted-fill: {{cor.primaria|alfa:0.15}};
+    --status-positive: {{cor.ok}};
+    --status-positive-background: {{cor.ok|escuro:0.35}};
+    --status-online: {{cor.ok}};
+    --status-speaking: {{cor.ok}};
+    --status-warning: {{cor.aviso}};
+    --status-danger: {{cor.erro}};
+
+    /* ---------------------------------------------- variaveis antigas
+       (antes do visual refresh; ainda lidas por plugins e por telas velhas) */
+    --background-primary: {{cor.fundo}};
+    --background-secondary: {{cor.superficie}};
+    --background-tertiary: {{cor.superficie}};
+    --background-floating: {{cor.superficie2}};
+    --background-nested-floating: {{cor.superficie}};
+    --background-mobile-primary: {{cor.fundo}};
+    --background-mobile-secondary: {{cor.superficie}};
+    --background-modifier-hover: {{cor.primaria|alfa:0.1}};
+    --background-modifier-active: {{cor.primaria|alfa:0.16}};
+    --background-modifier-selected: {{cor.primaria|alfa:0.18}};
+    --background-modifier-accent: {{cor.contorno|alfa:0.55}};
+    --background-mentioned: {{cor.terciaria|alfa:0.1}};
+    --background-mentioned-hover: {{cor.terciaria|alfa:0.14}};
+    --background-message-hover: {{cor.texto|alfa:0.03}};
+    --background-message-highlight: {{cor.secundaria|alfa:0.1}};
+    --background-message-highlight-hover: {{cor.secundaria|alfa:0.14}};
+    --bg-overlay-chat: {{cor.fundo}};
+    --bg-base-primary: {{cor.fundo}};
+    --bg-base-secondary: {{cor.superficie}};
+    --bg-base-tertiary: {{cor.superficie}};
+    --bg-mod-faint: {{cor.texto|alfa:0.04}};
+    --bg-mod-subtle: {{cor.texto|alfa:0.08}};
+    --bg-mod-strong: {{cor.texto|alfa:0.16}};
+    --bg-surface-overlay: {{cor.superficie2}};
+    --border-faint: {{cor.contorno|alfa:0.3}};
+    --header-primary: {{ansi.branco_claro}};
+    --header-secondary: {{cor.texto_suave}};
+    --text-normal: {{cor.texto}};
+    --text-primary: {{cor.texto}};
+    --text-secondary: {{cor.texto_suave}};
+    --text-positive: {{cor.ok}};
+    --text-warning: {{cor.aviso}};
+    --text-danger: {{cor.erro}};
+    --interactive-normal: {{cor.texto_suave}};
+    --interactive-hover: {{cor.texto}};
+    --interactive-active: {{ansi.branco_claro}};
+    --input-background: {{cor.superficie}};
+    --input-border: {{cor.contorno}};
+    --brand-experiment: {{cor.primaria}};
+    --brand-experiment-360: {{cor.primaria|claro:0.15}};
+    --brand-experiment-400: {{cor.primaria|claro:0.1}};
+    --brand-experiment-500: {{cor.primaria}};
+    --brand-experiment-560: {{cor.primaria|escuro:0.15}};
+    --brand-experiment-600: {{cor.primaria|escuro:0.22}};
+    --button-secondary-background: {{cor.superficie2}};
+    --button-secondary-background-hover: {{cor.superficie2|mistura:cor.contorno:0.45}};
+    --button-secondary-background-active: {{cor.contorno}};
+    --button-danger-background: {{cor.erro}};
+    --button-danger-background-hover: {{cor.erro|claro:0.12}};
+    --button-danger-background-active: {{cor.erro|escuro:0.12}};
+    --button-positive-background: {{cor.ok|escuro:0.25}};
+    --button-positive-background-hover: {{cor.ok|escuro:0.15}};
+    --button-positive-background-active: {{cor.ok|escuro:0.35}};
+    --info-positive-foreground: {{cor.ok}};
+    --info-positive-background: {{cor.ok|alfa:0.12}};
+    --info-warning-foreground: {{cor.aviso}};
+    --info-warning-background: {{cor.aviso|alfa:0.12}};
+    --info-danger-foreground: {{cor.erro}};
+    --info-danger-background: {{cor.erro|alfa:0.12}};
+    --info-help-foreground: {{ansi.ciano}};
+    --info-help-background: {{ansi.ciano|alfa:0.12}};
+    --deprecated-card-bg: {{cor.superficie}};
+    --deprecated-card-editable-bg: {{cor.superficie}};
+    --deprecated-store-bg: {{cor.fundo}};
+    --deprecated-quickswitcher-input-background: {{cor.superficie2}};
+    --deprecated-text-input-bg: {{cor.superficie}};
+    --deprecated-text-input-border: {{cor.contorno}};
+    --deprecated-text-input-border-hover: {{cor.contorno|claro:0.15}};
+    --focus-primary: {{cor.primaria}};
+}
+
+/* ------------------------------------------- selecao, links e codigo */
+::selection {
+    background: {{cor.primaria|alfa:0.35}};
+    color: {{ansi.branco_claro}};
+}
+
+code,
+pre,
+.hljs {
+    font-family: var(--font-code);
+}
+
+.hljs {
+    color: {{cor.texto}};
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: {{cor.texto_suave|mistura:cor.fundo:0.2}};
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-section {
+    color: {{ansi.magenta}};
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+    color: {{ansi.verde}};
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet {
+    color: {{ansi.amarelo}};
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-function .hljs-title {
+    color: {{ansi.azul}};
+}
+
+.hljs-type,
+.hljs-title.class_,
+.hljs-class .hljs-title,
+.hljs-built_in {
+    color: {{ansi.ciano}};
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params {
+    color: {{ansi.amarelo_claro}};
+}
+
+.hljs-property,
+.hljs-selector-class,
+.hljs-selector-id {
+    color: {{ansi.azul_claro}};
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-deletion {
+    color: {{ansi.vermelho}};
+}
+
+.hljs-meta,
+.hljs-operator,
+.hljs-link {
+    color: {{ansi.magenta_claro}};
+}

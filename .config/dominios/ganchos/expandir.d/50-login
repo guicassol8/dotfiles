@@ -1,0 +1,24 @@
+#!/bin/sh
+# Domínios: avisa a tela de login (SDDM) qual é o domínio ativo.
+#
+# bin/dominio chama este gancho com o nome do domínio depois de cada troca.
+# Ele só grava um arquivo de dados que o tema de login lê na próxima vez que
+# aparecer: /var/lib/dominios/sddm.conf (o theme.conf.user do tema é um link
+# para ele). A pasta é criada por root/instalar-root.sh; enquanto ela não
+# existir ou não for gravável, o gancho sai calado sem fazer nada.
+dominio="${1:-}"
+pasta=/var/lib/dominios
+
+case "$dominio" in
+    "" | *[!a-z0-9_-]*) exit 0 ;;
+esac
+[ -d "$pasta" ] && [ -w "$pasta" ] || exit 0
+
+tmp="$pasta/.sddm.conf.$$"
+if printf '[General]\ndominio=%s\n' "$dominio" > "$tmp" 2>/dev/null \
+    && chmod 644 "$tmp" 2>/dev/null \
+    && mv -f "$tmp" "$pasta/sddm.conf" 2>/dev/null; then
+    exit 0
+fi
+rm -f "$tmp" 2>/dev/null
+exit 0

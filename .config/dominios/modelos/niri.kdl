@@ -1,0 +1,85 @@
+// Dominio {{nome}}. Gerado por `dominio construir` a partir de modelos/niri.kdl.
+// Incluido no fim de ~/.config/niri/config.kdl; so sobrescreve aparencia.
+
+layout {
+    gaps {{forma.vaos}}
+
+    focus-ring {
+        on
+        width {{forma.borda}}
+        active-gradient from="{{cor.primaria}}" to="{{cor.secundaria}}" angle=135 relative-to="workspace-view" in="oklch shorter hue"
+        inactive-color "{{cor.contorno}}"
+        urgent-color "{{cor.erro}}"
+    }
+
+    border {
+        off
+    }
+
+    // Sombra usada como halo de luz na cor do dominio
+    shadow {
+        on
+        softness {{>niri-halo-suavidade}}
+        spread {{>niri-halo-espalhamento}}
+        offset x=0 y=0
+        draw-behind-window false
+        color "{{cor.primaria|alfa:0.42}}"
+        inactive-color "#00000066"
+    }
+
+    tab-indicator {
+        on
+        hide-when-single-tab
+        place-within-column
+        gap 6
+        width 4
+        length total-proportion=0.6
+        position "left"
+        gaps-between-tabs 4
+        corner-radius {{forma.raio}}
+        active-color "{{cor.primaria}}"
+        inactive-color "{{cor.contorno}}"
+        urgent-color "{{cor.erro}}"
+    }
+
+    insert-hint {
+        on
+        gradient from="{{cor.primaria|alfa:0.55}}" to="{{cor.secundaria|alfa:0.55}}" angle=135
+    }
+}
+
+overview {
+    backdrop-color "{{cor.fundo}}"
+    workspace-shadow {
+        softness 60
+        spread 12
+        offset x=0 y=0
+        color "{{cor.primaria|alfa:0.30}}"
+    }
+}
+
+blur {
+    passes 3
+    offset 3
+    noise 0.03
+    saturation 1.25
+}
+
+window-rule {
+    geometry-corner-radius {{forma.raio}}
+    clip-to-geometry true
+    draw-border-with-background false
+}
+
+// Terminais translucidos com o papel de parede desfocado atras (xray: barato)
+window-rule {
+    match app-id="^kitty$"
+    match app-id="^Alacritty$"
+    background-effect {
+        blur true
+    }
+}
+
+animations {
+{{>niri-animacoes.kdl}}
+}

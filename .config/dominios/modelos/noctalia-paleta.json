@@ -1,0 +1,36 @@
+{
+  "dark": {
+    "mPrimary": "{{cor.primaria}}",
+    "mOnPrimary": "{{cor.sobre_primaria}}",
+    "mSecondary": "{{cor.secundaria}}",
+    "mOnSecondary": "{{cor.sobre_secundaria}}",
+    "mTertiary": "{{cor.terciaria}}",
+    "mOnTertiary": "{{cor.sobre_terciaria}}",
+    "mError": "{{cor.erro}}",
+    "mOnError": "{{cor.sobre_erro}}",
+    "mSurface": "{{cor.fundo}}",
+    "mOnSurface": "{{cor.texto}}",
+    "mSurfaceVariant": "{{cor.superficie2}}",
+    "mOnSurfaceVariant": "{{cor.texto_suave}}",
+    "mOutline": "{{cor.contorno}}",
+    "mShadow": "#000000",
+    "mHover": "{{cor.terciaria}}",
+    "mOnHover": "{{cor.sobre_terciaria}}",
+    "terminal": {
+      "background": "{{cor.fundo}}",
+      "foreground": "{{cor.texto}}",
+      "cursor": "{{cor.primaria}}",
+      "cursorText": "{{cor.fundo}}",
+      "selectionBg": "{{cor.primaria}}",
+      "selectionFg": "{{cor.sobre_primaria}}",
+      "normal": {
+        "black": "{{ansi.preto}}", "red": "{{ansi.vermelho}}", "green": "{{ansi.verde}}", "yellow": "{{ansi.amarelo}}",
+        "blue": "{{ansi.azul}}", "magenta": "{{ansi.magenta}}", "cyan": "{{ansi.ciano}}", "white": "{{ansi.branco}}"
+      },
+      "bright": {
+        "black": "{{ansi.preto_claro}}", "red": "{{ansi.vermelho_claro}}", "green": "{{ansi.verde_claro}}", "yellow": "{{ansi.amarelo_claro}}",
+        "blue": "{{ansi.azul_claro}}", "magenta": "{{ansi.magenta_claro}}", "cyan": "{{ansi.ciano_claro}}", "white": "{{ansi.branco_claro}}"
+      }
+    }
+  }
+}

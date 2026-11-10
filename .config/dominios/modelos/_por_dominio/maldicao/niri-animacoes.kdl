@@ -1,0 +1,63 @@
+    // Maldicao: a janela entra em fatias com aberracao cromatica...
+    window-open {
+        duration-ms 300
+        curve "ease-out-expo"
+        custom-shader r"
+            vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+                float p = niri_clamped_progress;
+                vec2 uv = coords_geo.xy;
+                if (uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
+                float faixa = floor(uv.y * 16.0);
+                float h = fract(sin(faixa * 78.233 + niri_random_seed * 37.0) * 43758.5453);
+                float falta = 1.0 - p;
+                vec2 q = vec2(uv.x + (h - 0.5) * 0.9 * falta * falta, uv.y);
+                if (q.x < 0.0 || q.x > 1.0) return vec4(0.0);
+                float sep = 0.014 * falta;
+                vec4 cr = texture2D(niri_tex, (niri_geo_to_tex * vec3(q.x - sep, q.y, 1.0)).st);
+                vec4 cg = texture2D(niri_tex, (niri_geo_to_tex * vec3(q, 1.0)).st);
+                vec4 cb = texture2D(niri_tex, (niri_geo_to_tex * vec3(q.x + sep, q.y, 1.0)).st);
+                vec4 cor = vec4(cr.r, cg.g, cb.b, max(cg.a, max(cr.a, cb.a) * falta));
+                return cor * step(h * 0.55, p) * smoothstep(0.0, 0.2, p);
+            }
+        "
+    }
+    // ...e sai cortada ao meio na diagonal, as duas metades escorregando
+    window-close {
+        duration-ms 340
+        curve "linear"
+        custom-shader r"
+            float m_lado(vec2 s) { return (s.y - 0.5) + (s.x - 0.5) * 0.35; }
+            vec4 m_amostra(vec2 s) {
+                if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0) return vec4(0.0);
+                return texture2D(niri_tex, (niri_geo_to_tex * vec3(s, 1.0)).st);
+            }
+            vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+                float p = niri_clamped_progress;
+                vec2 uv = coords_geo.xy;
+                vec2 desvio = vec2(0.17, -0.06) * p * p;
+                vec2 s1 = uv - desvio;
+                vec2 s2 = uv + desvio;
+                vec4 cor = vec4(0.0);
+                float fio = 0.0;
+                if (m_lado(s1) < 0.0) {
+                    cor = m_amostra(s1);
+                    fio = smoothstep(0.014, 0.0, -m_lado(s1));
+                } else if (m_lado(s2) > 0.0) {
+                    cor = m_amostra(s2);
+                    fio = smoothstep(0.014, 0.0, m_lado(s2));
+                }
+                vec3 sangue = vec3({{cor.primaria|glsl}});
+                cor.rgb = mix(cor.rgb, sangue * cor.a, fio * 0.9);
+                float dentro = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+                float clarao = smoothstep(0.012, 0.0, abs(m_lado(uv))) * (1.0 - smoothstep(0.0, 0.3, p)) * dentro;
+                cor += vec4(1.0, 0.93, 0.90, 1.0) * clarao;
+                return cor * (1.0 - smoothstep(0.5, 1.0, p));
+            }
+        "
+    }
+    workspace-switch {
+        spring damping-ratio=1.0 stiffness=1500 epsilon=0.0001
+    }
+    window-movement {
+        spring damping-ratio=1.0 stiffness=1300 epsilon=0.0001
+    }

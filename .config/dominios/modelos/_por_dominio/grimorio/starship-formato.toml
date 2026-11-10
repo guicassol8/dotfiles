@@ -1,0 +1,24 @@
+# Grimorio: uma linha de texto corrido, com o sigilo como marca
+format = """[◈](primaria) $directory$git_branch$git_status$jobs$fill$nodejs$python$rust$cmd_duration
+$character"""
+
+[fill]
+symbol = "·"
+style = "contorno"
+
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+read_only = " 󰌾"
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "italic texto"
+
+[git_branch]
+symbol = " "
+format = "[em](suave) [$symbol$branch]($style) "
+style = "primaria"
+
+[character]
+success_symbol = "[✦](primaria)"
+error_symbol = "[✦](erro)"
+vimcmd_symbol = "[✧](terciaria)"

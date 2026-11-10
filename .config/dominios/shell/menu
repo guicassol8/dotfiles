@@ -1,0 +1,5 @@
+#!/bin/sh
+# Seletor generico: le opcoes do stdin, devolve a escolhida no stdout.
+# $1 = titulo. Usa o lancador do Noctalia 5 (modo dmenu).
+noctalia msg status >/dev/null 2>&1 || exit 1
+exec noctalia dmenu -p "${1:-Escolha}"

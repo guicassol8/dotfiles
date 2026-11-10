@@ -1,0 +1,1238 @@
+#!/usr/bin/env python3
+"""agentes: HUD das sessões do Claude Code e da memória da máquina.
+
+  agentes [--json]           tabela das sessões e da memória do sistema
+  agentes widget [--json]    uma linha curta pra barra (ex.: 󱚣 3 · 1,4G)
+  agentes widget --alertar   idem, e avisa se a memória estiver crítica
+                             (uma notificação e um som, no máximo a cada 10 min)
+  agentes tui                visão ao vivo, atualiza a cada 2 s
+  agentes painel             abre a visão ao vivo numa janela flutuante
+  agentes ajuda              este texto
+
+Opções: --cor força cor mesmo fora do terminal, --sem-cor desliga.
+--json troca o texto por um objeto JSON numa linha só, pra painéis e scripts.
+
+Na visão ao vivo: q ou Esc sai, r atualiza na hora.
+
+Cada sessão mostra PID, projeto (a pasta onde ela roda), tempo de vida,
+memória da árvore inteira de processos e quantos processos filhos ela tem.
+Memória crítica: menos de 600 MiB disponíveis ou pressão (some avg10) acima
+de 25. Aviso: menos de 1200 MiB ou pressão acima de 10. Os limites são
+constantes no começo deste arquivo.
+
+Variáveis pra teste: DOMINIOS_PROC (outro /proc), DOMINIOS_ESTADO (outra pasta
+de estado), DOMINIOS_TOKENS (tokens.json de outro domínio), DOMINIOS_TERMINAL
+(outro lançador de terminal), CLAUDE_CONFIG_DIR (outra pasta ~/.claude).
+"""
+import os
+import sys
+
+# ---------------------------------------------------------------- limites
+CRITICO_DISPONIVEL_MIB = 600      # MemAvailable abaixo disso: critico
+CRITICO_PRESSAO = 25.0            # some avg10 acima disso: critico
+AVISO_DISPONIVEL_MIB = 1200
+AVISO_PRESSAO = 10.0
+INTERVALO_ALERTA_S = 600          # no maximo um alerta a cada 10 minutos
+INTERVALO_TUI_S = 2.0             # atualizacao da visao ao vivo
+
+# ------------------------------------------------- o que e uma sessao
+# Candidato: processo com comm "claude" (ou "claude <algo>", titulo que o
+# proprio Claude Code poe) ou cujo executavel e o binario nativo dele.
+COMM_CLAUDE = "claude"
+MARCA_EXE = "/claude/versions/"
+# Ajudantes: rodam o mesmo binario mas nao sao sessao de agente.
+FLAGS_AJUDANTE = {"--chrome-native-host", "--claude-in-chrome-mcp", "--daemon-worker",
+                  "--bg-pty-host", "--eval-mock-server"}            # em qualquer posicao
+PRIMEIRO_ARG_AJUDANTE = {                                           # so como 1o argumento
+    "--version", "-v", "--help", "-h", "--preload",
+    "daemon", "mcp", "update", "upgrade", "install", "doctor", "auth", "plugin", "plugins",
+    "setup-token", "agents", "attach", "logs", "stop", "kill", "rm", "respawn", "purge",
+    "import", "gateway", "auto-mode", "ultrareview"}
+ARGV0_AJUDANTE = {"rg", "apply-seccomp"}                            # ferramentas embutidas
+TIPOS_AJUDANTE = {"daemon", "daemon-worker"}                        # CLAUDE_CODE_SESSION_KIND
+ARGV0_RESERVA = "claude bg-spare"                                   # sessao de fundo pre-aquecida
+FLAG_RESERVA = "--bg-spare"
+
+EU = os.path.realpath(__file__)
+AQUI = os.path.dirname(EU)
+RAIZ = os.path.dirname(AQUI)
+CASA = os.path.expanduser("~")
+PROC = os.environ.get("DOMINIOS_PROC") or "/proc"
+
+NOME = "agentes"
+CLASSE = "dominio-painel"        # app-id que a regra do niri deixa flutuante
+TITULO = "Agentes"               # titulo da janela do painel
+OUTROS_PAINEIS = ("Missões diárias",) # titulos dos outros paineis com o mesmo app-id
+
+G_AGENTES = "\U000f16a3"         # robo (Nerd Font, Material Design)
+G_ALERTA = "\U000f0026"
+# Para o shell (painel nativo): nome de icone Tabler e papel de cor da paleta
+ICONE_SHELL = "robot"
+ROTULO_CLASSE = {"ok": "tudo tranquilo", "aviso": "memória apertada", "critico": "memória crítica"}
+PAPEL_CLASSE = {"ok": "ok", "aviso": "aviso", "critico": "erro"}
+
+
+class ErroUso(Exception):
+    """Pedido que nao da pra atender."""
+
+
+def aviso(msg):
+    print(f"{NOME}: {msg}", file=sys.stderr)
+
+
+def curto(caminho):
+    caminho = str(caminho)
+    return "~" + caminho[len(CASA):] if caminho.startswith(CASA + os.sep) else caminho
+
+
+def pasta_estado():
+    pasta = os.environ.get("DOMINIOS_ESTADO")
+    if pasta:
+        return pasta
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(CASA, ".local", "state")
+    return os.path.join(base, "dominios")
+
+
+def caminhos_tokens():
+    env = os.environ.get("DOMINIOS_TOKENS")
+    return ([env] if env else []) + [os.path.join(RAIZ, "atual", "tokens.json"),
+                                     os.path.join(RAIZ, "_build", "sistema", "tokens.json")]
+
+
+# ---------------------------------------------------------------- numeros
+def num(v, casas=1):
+    """Numero do jeito brasileiro, com virgula decimal."""
+    return f"{v:.{casas}f}".replace(".", ",")
+
+
+def mem_txt(kb, curta=False):
+    mib = kb / 1024
+    if mib < 1000:
+        return f"{round(mib)}M" if curta else f"{round(mib)} MiB"
+    return f"{num(mib / 1024)}G" if curta else f"{num(mib / 1024)} GiB"
+
+
+def tempo_txt(seg):
+    seg = max(0, int(seg))
+    if seg < 60:
+        return f"{seg}s"
+    if seg < 3600:
+        return f"{seg // 60}min"
+    if seg < 86400:
+        return f"{seg // 3600}h{seg % 3600 // 60:02d}"
+    return f"{seg // 86400}d{seg % 86400 // 3600:02d}h"
+
+
+def sessoes_txt(n):
+    return f"{n} {'sessão' if n == 1 else 'sessões'}"
+
+
+# ------------------------------------------------------------------ texto
+def larg(s):
+    """Largura em colunas do terminal (CJK ocupa 2, combinantes ocupam 0)."""
+    if s.isascii():
+        return len(s)
+    import unicodedata
+    n = 0
+    for ch in s:
+        if ch < "̀":
+            n += 1
+        elif unicodedata.category(ch) in ("Mn", "Me", "Cf"):
+            continue
+        else:
+            n += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    return n
+
+
+def corta(s, n):
+    """Trunca para caber em n colunas, com reticencias."""
+    if n <= 0:
+        return ""
+    if larg(s) <= n:
+        return s
+    out, usado = [], 0
+    for ch in s:
+        w = larg(ch)
+        if usado + w > n - 1:
+            break
+        out.append(ch)
+        usado += w
+    return "".join(out) + "…"
+
+
+def enche(s, n, direita=False):
+    """Completa com espacos ate n colunas (texto a esquerda ou a direita)."""
+    falta = " " * max(0, n - larg(s))
+    return falta + s if direita else s + falta
+
+
+# ------------------------------------------------------------------- tema
+PAPEL_TOKEN = {"texto": "texto", "suave": "texto_suave", "primaria": "primaria",
+               "secundaria": "secundaria", "terciaria": "terciaria", "ok": "ok",
+               "aviso": "aviso", "erro": "erro", "contorno": "contorno",
+               "selecao": "superficie2"}
+# Reserva sem tokens (ou em terminal sem truecolor): ANSI simples
+PAPEL_ANSI = {"texto": "39", "suave": "90", "primaria": "36", "secundaria": "35",
+              "terciaria": "33", "ok": "32", "aviso": "33", "erro": "31",
+              "contorno": "90", "selecao": "90"}
+CAIXAS = {
+    "viva": dict(zip("se sd ie id h v te td".split(), "┏┓┗┛━┃┣┫")),      # raio 0
+    "reta": dict(zip("se sd ie id h v te td".split(), "┌┐└┘─│├┤")),
+    "curva": dict(zip("se sd ie id h v te td".split(), "╭╮╰╯─│├┤")),     # raio grande
+}
+
+
+def le_tokens():
+    import json
+    for caminho in caminhos_tokens():
+        try:
+            with open(caminho, encoding="utf-8") as f:
+                dados = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if isinstance(dados, dict) and isinstance(dados.get("cor"), dict):
+            return dados
+    return {}
+
+
+class Tema:
+    """Cores e textos do dominio ativo. Sem cor ligada, todo codigo vira ''."""
+
+    def __init__(self, cor=True):
+        tk = le_tokens()
+        self.tem_tokens = bool(tk)
+
+        def texto(chave, padrao):
+            v = tk.get(chave)
+            return v if isinstance(v, str) and v.strip() else padrao
+
+        self.nome = texto("nome", "Domínios")
+        self.rotulo = texto("rotulo", "DOMÍNIOS")
+        self.notificacao = texto("notificacao", "")
+        forma = tk.get("forma") if isinstance(tk.get("forma"), dict) else {}
+        raio = forma.get("raio")
+        raio = raio if isinstance(raio, (int, float)) else 4
+        self.caixa = CAIXAS["viva" if raio <= 0 else "curva" if raio >= 10 else "reta"]
+        self.ligada = bool(cor)
+        truecolor = os.environ.get("TERM", "") not in ("linux", "dumb", "vt100", "vt220")
+        self._cores = {}
+        cores = tk.get("cor") if isinstance(tk.get("cor"), dict) else {}
+        for papel, chave in PAPEL_TOKEN.items():
+            self._cores[papel] = self._hex(cores.get(chave)) if truecolor else None
+        self.rst = "\x1b[0m" if self.ligada else ""
+
+    @staticmethod
+    def _hex(v):
+        if isinstance(v, str) and len(v) == 7 and v[0] == "#":
+            try:
+                return int(v[1:3], 16), int(v[3:5], 16), int(v[5:7], 16)
+            except ValueError:
+                return None
+        return None
+
+    def fg(self, papel, negrito=False, italico=False):
+        if not self.ligada:
+            return ""
+        rgb = self._cores.get(papel)
+        cod = "38;2;%d;%d;%d" % rgb if rgb else PAPEL_ANSI.get(papel, "39")
+        return "\x1b[" + ("1;" if negrito else "") + ("3;" if italico else "") + cod + "m"
+
+    def pinta(self, papel, txt, **kw):
+        return f"{self.fg(papel, **kw)}{txt}{self.rst}" if self.ligada else txt
+
+
+def compoe(tema, segs, largura, fundo="", margem=0):
+    """Junta segmentos (estilo, texto) numa linha de exatamente `largura` colunas."""
+    margem = max(0, min(margem, largura // 2))
+    util = largura - 2 * margem
+    out, usado = [], 0
+    rst = tema.rst
+    if margem:
+        out.append(f"{fundo}{' ' * margem}")
+    for estilo, txt in segs:
+        if usado >= util:
+            break
+        w = larg(txt)
+        if usado + w > util:
+            txt = corta(txt, util - usado)
+            w = larg(txt)
+        out.append(f"{rst}{fundo}{estilo}{txt}" if (estilo or fundo) else f"{rst}{txt}")
+        usado += w
+    out.append(f"{rst}{fundo}{' ' * (largura - margem - usado)}{rst}")
+    return "".join(out)
+
+
+def lados(esq, dir_, largura):
+    """Segmentos a esquerda e a direita; se nao couber, fica so a esquerda."""
+    le = sum(larg(t) for _, t in esq)
+    ld = sum(larg(t) for _, t in dir_)
+    if not dir_ or le + ld + 2 > largura:
+        return list(esq)
+    return list(esq) + [("", " " * (largura - le - ld))] + list(dir_)
+
+
+def barra(tema, fracao, largura, papel="primaria"):
+    cheio = max(0, min(largura, int(round(largura * fracao))))
+    return [(tema.fg(papel), "█" * cheio), (tema.fg("contorno"), "░" * (largura - cheio))]
+
+
+# -------------------------------------------------------------- processos
+def _le(caminho, limite=4096):
+    """Leitura curta e direta; None se o arquivo (ou o processo) sumiu."""
+    try:
+        fd = os.open(caminho, os.O_RDONLY)
+    except OSError:
+        return None
+    try:
+        return os.read(fd, limite)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def le_processos():
+    """Uma passada por /proc/<pid>/stat.
+    Devolve {pid: (ppid, comm, estado, inicio_em_ticks, rss_em_paginas)}."""
+    tabela = {}
+    try:
+        nomes = os.listdir(PROC)
+    except OSError:
+        return tabela
+    for nome in nomes:
+        if not nome.isdigit():
+            continue
+        dado = _le(f"{PROC}/{nome}/stat")
+        if not dado:
+            continue                                  # sumiu no meio da varredura
+        a, b = dado.find(b"("), dado.rfind(b")")
+        if a < 0 or b < a:
+            continue
+        campos = dado[b + 2:].split()
+        # campos[0] e o 3o campo do stat: estado, ppid(1) ... starttime(19), vsize, rss(21)
+        try:
+            tabela[int(nome)] = (int(campos[1]), dado[a + 1:b].decode("utf-8", "replace"),
+                                 campos[0].decode("ascii", "replace"), int(campos[19]), int(campos[21]))
+        except (IndexError, ValueError):
+            continue
+    return tabela
+
+
+def argv_de(pid):
+    dado = _le(f"{PROC}/{pid}/cmdline", 16384)
+    if dado is None:
+        return None
+    partes = dado.split(b"\0")
+    while partes and not partes[-1]:
+        partes.pop()
+    return [p.decode("utf-8", "replace") for p in partes]
+
+
+def eh_claude(pid, comm):
+    if comm == COMM_CLAUDE or comm.startswith(COMM_CLAUDE + " "):
+        return True
+    try:
+        return MARCA_EXE in os.readlink(f"{PROC}/{pid}/exe")
+    except OSError:
+        return False
+
+
+def _tipo_no_ambiente(pid):
+    dado = _le(f"{PROC}/{pid}/environ", 65536)
+    if not dado:
+        return None
+    for item in dado.split(b"\0"):
+        if item.startswith(b"CLAUDE_CODE_SESSION_KIND="):
+            return item.split(b"=", 1)[1].decode("ascii", "replace")
+    return None
+
+
+def _reserva_em_uso(pid, inicio):
+    """Uma sessao de fundo pre-aquecida (bg-spare) so conta depois que o Claude a
+    registra como sessao em ~/.claude/sessions/<pid>.json."""
+    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(CASA, ".claude")
+    pasta = os.path.join(base, "sessions")
+    if not os.path.isdir(pasta):
+        return True                     # sem registro para consultar: melhor mostrar
+    try:
+        import json
+        with open(os.path.join(pasta, f"{pid}.json"), encoding="utf-8") as f:
+            reg = json.load(f)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(reg, dict) or reg.get("kind") in TIPOS_AJUDANTE:
+        return False
+    marca = reg.get("procStart")
+    return marca is None or str(marca) == str(inicio)   # pid reaproveitado nao engana
+
+
+def classifica(pid, argv, inicio=None):
+    """'sessao' ou 'ajudante' para um processo que roda o binario do Claude."""
+    if not argv:
+        return "ajudante"
+    a0, resto = argv[0], argv[1:]
+    if a0.startswith(COMM_CLAUDE + " ") and a0 != ARGV0_RESERVA:
+        return "ajudante"               # "claude bg-pty-host", "claude daemon"...
+    if os.path.basename(a0) in ARGV0_AJUDANTE:
+        return "ajudante"
+    if any(a in FLAGS_AJUDANTE for a in resto):
+        return "ajudante"
+    if resto and resto[0] in PRIMEIRO_ARG_AJUDANTE:
+        return "ajudante"
+    if a0 == ARGV0_RESERVA or (resto and resto[0] == FLAG_RESERVA):
+        return "sessao" if _reserva_em_uso(pid, inicio) else "ajudante"
+    if _tipo_no_ambiente(pid) in TIPOS_AJUDANTE:
+        return "ajudante"
+    return "sessao"
+
+
+def acha_sessoes(tabela=None):
+    """Sessoes do Claude Code: [{pid, projeto, cwd, tempo_s, mem_kb, filhos}], da mais
+    gulosa para a mais leve. Um claude dentro de outra sessao faz parte dela."""
+    if tabela is None:
+        tabela = le_processos()
+    tipos = {}
+    for pid, (_ppid, comm, estado, inicio, _rss) in tabela.items():
+        if estado != "Z" and eh_claude(pid, comm):
+            argv = argv_de(pid)
+            if argv is not None:
+                tipos[pid] = classifica(pid, argv, inicio)
+    raizes = []
+    for pid, tipo in tipos.items():
+        if tipo != "sessao":
+            continue
+        pai, vistos = tabela[pid][0], set()
+        while pai in tabela and pai not in vistos:
+            if tipos.get(pai) == "sessao":
+                break                    # tem sessao acima: e parte dela
+            vistos.add(pai)
+            pai = tabela[pai][0]
+        else:
+            raizes.append(pid)
+    if not raizes:
+        return []
+    filhos = {}
+    for pid, dado in tabela.items():
+        filhos.setdefault(dado[0], []).append(pid)
+    try:
+        pagina_kb = os.sysconf("SC_PAGE_SIZE") // 1024
+        ticks = os.sysconf("SC_CLK_TCK")
+    except (ValueError, OSError):
+        pagina_kb, ticks = 4, 100
+    try:
+        ligado_ha = float((_le(f"{PROC}/uptime") or b"0").split()[0])
+    except (IndexError, ValueError):
+        ligado_ha = 0.0
+    sessoes = []
+    for raiz in raizes:
+        # RSS de cada processo da arvore (o mesmo contador de /proc/<pid>/statm), somado
+        paginas, n, fila, vistos = 0, 0, [raiz], {raiz}
+        while fila:
+            pid = fila.pop()
+            paginas += tabela[pid][4]
+            n += 1
+            for f in filhos.get(pid, ()):
+                if f not in vistos:
+                    vistos.add(f)
+                    fila.append(f)
+        try:
+            cwd = os.readlink(f"{PROC}/{raiz}/cwd")
+        except OSError:
+            cwd = ""
+        if cwd.endswith(" (deleted)"):
+            cwd = cwd[:-10]
+        if not cwd:
+            projeto = "?"
+        elif cwd.rstrip("/") == CASA:
+            projeto = "~"
+        else:
+            projeto = os.path.basename(cwd.rstrip("/")) or "/"
+        # nome de pasta com caractere de controle nao pode baguncar a tabela
+        projeto = "".join(c if c >= " " and c != "\x7f" else "?" for c in projeto)
+        sessoes.append({"pid": raiz, "projeto": projeto, "cwd": cwd,
+                        "tempo_s": max(0.0, ligado_ha - tabela[raiz][3] / ticks),
+                        "mem_kb": paginas * pagina_kb, "filhos": n - 1})
+    sessoes.sort(key=lambda s: (-s["mem_kb"], s["pid"]))
+    return sessoes
+
+
+# ---------------------------------------------------------------- sistema
+def le_memoria():
+    """kB de /proc/meminfo: total, disponivel, swap_total, swap_usado."""
+    info = {}
+    dado = _le(f"{PROC}/meminfo", 8192) or b""
+    for linha in dado.split(b"\n"):
+        chave, _, resto = linha.partition(b":")
+        if chave in (b"MemTotal", b"MemAvailable", b"MemFree", b"SwapTotal", b"SwapFree"):
+            try:
+                info[chave.decode()] = int(resto.split()[0])
+            except (IndexError, ValueError):
+                pass
+    total = info.get("MemTotal", 0)
+    swap_total = info.get("SwapTotal", 0)
+    return {"total": total, "disponivel": info.get("MemAvailable", info.get("MemFree", 0)),
+            "swap_total": swap_total, "swap_usado": max(0, swap_total - info.get("SwapFree", swap_total))}
+
+
+def le_pressao():
+    """(some avg10, full avg10) de /proc/pressure/memory, ou None onde nao houver PSI."""
+    some = full = None
+    dado = _le(f"{PROC}/pressure/memory") or b""
+    for linha in dado.split(b"\n"):
+        partes = linha.split()
+        if len(partes) < 2:
+            continue
+        for p in partes[1:]:
+            if p.startswith(b"avg10="):
+                try:
+                    valor = float(p[6:])
+                except ValueError:
+                    break
+                if partes[0] == b"some":
+                    some = valor
+                elif partes[0] == b"full":
+                    full = valor
+                break
+    return some, full
+
+
+def classe_de(disponivel_kb, some, total_kb=1):
+    # sem leitura de memoria (total zero) nao se alarma por ela: vale so a pressao
+    mib = disponivel_kb / 1024 if total_kb > 0 else float("inf")
+    if mib < CRITICO_DISPONIVEL_MIB or (some is not None and some > CRITICO_PRESSAO):
+        return "critico"
+    if mib < AVISO_DISPONIVEL_MIB or (some is not None and some > AVISO_PRESSAO):
+        return "aviso"
+    return "ok"
+
+
+def coleta():
+    """Tudo o que os comandos mostram, de uma vez."""
+    sessoes = acha_sessoes()
+    mem = le_memoria()
+    some, full = le_pressao()
+    return {"sessoes": sessoes, "mem_kb": sum(s["mem_kb"] for s in sessoes), "memoria": mem,
+            "some": some, "full": full, "classe": classe_de(mem["disponivel"], some, mem["total"])}
+
+
+def mib(kb):
+    return int(round(kb / 1024))
+
+
+_ESCAPES_JSON = {'"': '\\"', "\\": "\\\\", "\n": "\\n", "\r": "\\r", "\t": "\\t"}
+
+
+def para_json(v):
+    """Codificador JSON enxuto (texto, numero, booleano, lista, dicionario). Existe so
+    para a barra nao pagar ~8 ms de `import json` a cada consulta."""
+    if v is True:
+        return "true"
+    if v is False:
+        return "false"
+    if v is None:
+        return "null"
+    if isinstance(v, str):
+        return '"' + "".join(_ESCAPES_JSON.get(c) or (c if c >= " " else "\\u%04x" % ord(c)) for c in v) + '"'
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return repr(v) if v == v and abs(v) != float("inf") else "null"
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(para_json(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{para_json(str(k))}: {para_json(x)}" for k, x in v.items()) + "}"
+    return para_json(str(v))
+
+
+def imprime_json(obj):
+    """Sempre numa linha so, em UTF-8."""
+    print(para_json(obj))
+
+
+def linha_memoria(d):
+    m = d["memoria"]
+    return (f"Memória: {mem_txt(m['disponivel'])} disponíveis de {mem_txt(m['total'])}",
+            f"Swap: {mem_txt(m['swap_usado'])} de {mem_txt(m['swap_total'])}" if m["swap_total"] else "Swap: sem swap",
+            "Pressão: sem medição" if d["some"] is None else
+            f"Pressão: some {num(d['some'], 2)} · full {num(d['full'] or 0.0, 2)}")
+
+
+# ---------------------------------------------------------------- efeitos
+def qual(prog):
+    """Caminho de um executavel no PATH (shutil.which enxuto)."""
+    for pasta in os.environ.get("PATH", "").split(os.pathsep):
+        cand = os.path.join(pasta or ".", prog)
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
+
+
+def solta(cmd):
+    """Dispara um comando desacoplado (duplo fork): nao trava a interface,
+    nao deixa zumbi e nao herda o terminal."""
+    try:
+        pid = os.fork()
+    except OSError as e:
+        aviso(f"{cmd[0]}: {e.strerror or e}")
+        return
+    if pid:
+        try:
+            os.waitpid(pid, 0)
+        except OSError:
+            pass
+        return
+    codigo = 0
+    try:
+        os.setsid()
+        if os.fork() == 0:
+            codigo = 127
+            nulo = os.open(os.devnull, os.O_RDWR)
+            for fd in (0, 1, 2):
+                os.dup2(nulo, fd)
+            os.execvp(cmd[0], cmd)
+    except BaseException:
+        pass
+    finally:
+        os._exit(codigo)
+
+
+def alerta(d):
+    """Em estado critico, uma notificacao e um som, no maximo a cada 10 minutos.
+    O carimbo de hora fica em ~/.local/state/dominios/agentes-alerta. Sem daemon:
+    quem chama de tempos em tempos e a barra. Devolve True se avisou."""
+    if d["classe"] != "critico":
+        return False
+    import fcntl
+    import time
+    pasta = pasta_estado()
+    carimbo = os.path.join(pasta, "agentes-alerta")
+    try:
+        os.makedirs(pasta, exist_ok=True)
+        trava = os.open(pasta, os.O_RDONLY)
+    except OSError as e:
+        aviso(f"não consegui usar {curto(pasta)}: {e.strerror or e}")
+        return False
+    try:
+        fcntl.flock(trava, fcntl.LOCK_EX)
+        agora = time.time()
+        try:
+            with open(carimbo, encoding="ascii") as f:
+                ultimo = float(f.read().strip() or 0)
+        except (OSError, ValueError):
+            ultimo = 0.0
+        # carimbo um pouco no futuro (relogio acertado) ainda vale; muito no futuro e lixo
+        if abs(agora - ultimo) < INTERVALO_ALERTA_S:
+            return False
+        tmp = f"{carimbo}.{os.getpid()}.tmp"
+        try:
+            with open(tmp, "w", encoding="ascii") as f:
+                f.write(f"{agora:.3f}\n")
+            os.replace(tmp, carimbo)
+        except OSError as e:
+            aviso(f"não consegui gravar {curto(carimbo)}: {e.strerror or e}")
+            return False                 # sem carimbo nao da pra limitar: melhor calar
+    finally:
+        os.close(trava)
+    m = d["memoria"]
+    tema = Tema(False)
+    titulo = f"{tema.notificacao} Memória no limite".strip()
+    corpo = f"Só {mem_txt(m['disponivel'])} disponíveis de {mem_txt(m['total'])}."
+    if d["some"] is not None:
+        corpo += f" Pressão: {num(d['some'], 1)}."
+    if d["sessoes"]:
+        maior = d["sessoes"][0]
+        corpo += (f" {sessoes_txt(len(d['sessoes']))} do Claude usando {mem_txt(d['mem_kb'])}; "
+                  f"a maior é {maior['projeto']} ({mem_txt(maior['mem_kb'])}).")
+    notifica = qual("notify-send")
+    if notifica:
+        solta([notifica, "-u", "critical", "-a", "Domínios", titulo, corpo])
+    dominio = qual("dominio") or os.path.join(AQUI, "dominio")
+    if os.access(dominio, os.X_OK):
+        solta([dominio, "tocar", "alerta"])
+    return True
+
+
+# ----------------------------------------------------------------- saidas
+def cmd_tabela(cor, em_json=False):
+    d = coleta()
+    m = d["memoria"]
+    if em_json:
+        imprime_json({
+            "sessoes": [{"pid": s["pid"], "projeto": s["projeto"], "mem_mb": mib(s["mem_kb"]),
+                         "tempo": tempo_txt(s["tempo_s"]), "filhos": s["filhos"]} for s in d["sessoes"]],
+            "total_mem_mb": mib(d["mem_kb"]), "disponivel_mb": mib(m["disponivel"]),
+            "total_mb": mib(m["total"]), "swap_usado_mb": mib(m["swap_usado"]),
+            "swap_total_mb": mib(m["swap_total"]), "pressao": d["some"] or 0.0,
+            "pressao_full": d["full"] or 0.0, "classe": d["classe"]})
+        return 0
+    tema = Tema(cor)                     # so o texto colorido precisa dos tokens
+    p = tema.pinta
+    n = len(d["sessoes"])
+    resumo = sessoes_txt(n) + (f" · {mem_txt(d['mem_kb'])}" if n else "")
+    out = [f"{p('primaria', G_AGENTES + '  AGENTES', negrito=True)}  {p('suave', resumo)}", ""]
+    if not n:
+        out.append("  " + p("suave", "Nenhuma sessão do Claude Code rodando."))
+    else:
+        col = max(7, min(32, max(larg(s["projeto"]) for s in d["sessoes"])))
+        out.append("  " + p("suave", f"{'PID':>7}  {enche('PROJETO', col)}  {'TEMPO':>7}  {'MEM':>9}  {'PROCS':>5}"))
+        for s in d["sessoes"]:
+            out.append(f"  {p('suave', '%7d' % s['pid'])}  {p('texto', enche(corta(s['projeto'], col), col))}  "
+                       f"{p('texto', enche(tempo_txt(s['tempo_s']), 7, True))}  "
+                       f"{p('primaria', enche(mem_txt(s['mem_kb']), 9, True))}  "
+                       f"{p('suave', '%5d' % s['filhos'])}")
+    usado = max(0, m["total"] - m["disponivel"])
+    papel = PAPEL_CLASSE[d["classe"]] if d["classe"] != "ok" else "primaria"
+    segs = barra(tema, usado / m["total"] if m["total"] else 0, 24, papel)
+    desenho = "".join(f"{e}{t}{tema.rst}" for e, t in segs)
+    mem_l, swap_l, pres_l = linha_memoria(d)
+    out += ["", f"  {desenho}  {p(PAPEL_CLASSE[d['classe']], ROTULO_CLASSE[d['classe']])}",
+            "  " + p("texto", mem_l), "  " + p("suave", f"{swap_l} · {pres_l}")]
+    print("\n".join(out))
+    return 0
+
+
+def cmd_widget(em_json, alertar):
+    d = coleta()
+    n = len(d["sessoes"])
+    texto = f"{G_AGENTES} {n}" + (f" · {mem_txt(d['mem_kb'], curta=True)}" if n else "")
+    if d["classe"] != "ok":
+        texto += f" {G_ALERTA}"
+    avisou = alerta(d) if alertar else False
+    if not em_json:
+        print(texto)
+        return 0
+    dica = [f"Agentes Claude: {sessoes_txt(n)}" + (f" · {mem_txt(d['mem_kb'])}" if n else "")]
+    for s in d["sessoes"]:
+        dica.append(f"{s['projeto']} · {mem_txt(s['mem_kb'])} · {tempo_txt(s['tempo_s'])} · pid {s['pid']}"
+                    + (f" · {s['filhos']} proc." if s["filhos"] else ""))
+    dica.extend(linha_memoria(d))
+    if d["classe"] != "ok":
+        dica.append(f"{G_ALERTA} {ROTULO_CLASSE[d['classe']].capitalize()}")
+    cor = {"aviso": "secondary", "critico": "error"}.get(d["classe"]) or ("primary" if n else "on_surface")
+    dados = {"texto": texto, "texto_curto": str(n), "dica": "\n".join(dica), "classe": d["classe"],
+             "sessoes": n, "mem_mb": mib(d["mem_kb"]), "disponivel_mb": mib(d["memoria"]["disponivel"]),
+             "pressao": d["some"] or 0.0, "pressao_full": d["full"] or 0.0,
+             "glifo": ICONE_SHELL, "cor": cor}
+    if alertar:
+        dados["alertou"] = avisou
+    imprime_json(dados)
+    return 0
+
+
+# --------------------------------------------------------------- terminal
+class Terminal:
+    """Tela alternativa em modo cru, com restauracao garantida na saida.
+
+    Sinais (SIGWINCH, SIGTERM, SIGINT, SIGHUP) so escrevem num pipe que o
+    select vigia; quem trata e o laco principal, nunca o manipulador."""
+
+    CSI_FINAL = {ord("A"): "cima", ord("B"): "baixo", ord("H"): "inicio", ord("F"): "fim"}
+
+    def __init__(self, titulo):
+        self.titulo = titulo
+        self.ent = sys.stdin.fileno()
+        self.sai = sys.stdout.fileno()
+        self.antigo = None
+        self.sinais = {}
+        self.cano = None
+        self.ativa = False
+
+    def __enter__(self):
+        import signal
+        import termios
+        if not (os.isatty(self.ent) and os.isatty(self.sai)):
+            raise ErroUso("a visão ao vivo precisa de um terminal de verdade (entrada e saída).")
+        self.antigo = termios.tcgetattr(self.ent)
+        try:
+            cru = termios.tcgetattr(self.ent)
+            cru[0] &= ~(termios.IXON | termios.ICRNL | termios.INLCR | termios.ISTRIP)
+            cru[3] &= ~(termios.ICANON | termios.ECHO | termios.ISIG | termios.IEXTEN)
+            cru[6][termios.VMIN] = 1
+            cru[6][termios.VTIME] = 0
+            termios.tcsetattr(self.ent, termios.TCSADRAIN, cru)
+            self.cano = os.pipe()
+            for fd in self.cano:
+                os.set_blocking(fd, False)
+            for nome in ("SIGWINCH", "SIGTERM", "SIGINT", "SIGHUP"):
+                num_sinal = getattr(signal, nome)
+                self.sinais[num_sinal] = signal.signal(num_sinal, self._sinal)
+            self.winch = signal.SIGWINCH
+            self.ativa = True
+            # tela alternativa, guarda e troca o titulo, some com o cursor, sem quebra automatica
+            self.escreve(f"\x1b[?1049h\x1b[22;0t\x1b]2;{self.titulo}\x07\x1b[?25l\x1b[?7l\x1b[2J")
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+        return self
+
+    def __exit__(self, *_exc):
+        import signal
+        import termios
+        if self.ativa:
+            self.ativa = False
+            try:
+                self.escreve("\x1b[0m\x1b[?7h\x1b[?25h\x1b[23;0t\x1b[?1049l")
+            except OSError:
+                pass
+        for num_sinal, antigo in self.sinais.items():
+            try:
+                signal.signal(num_sinal, antigo)
+            except (OSError, ValueError):
+                pass
+        self.sinais = {}
+        if self.antigo is not None:
+            try:
+                termios.tcsetattr(self.ent, termios.TCSAFLUSH, self.antigo)
+            except (OSError, termios.error):
+                pass
+            self.antigo = None
+        if self.cano:
+            for fd in self.cano:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            self.cano = None
+        return False
+
+    def _sinal(self, num_sinal, _quadro):
+        try:
+            os.write(self.cano[1], b"W" if num_sinal == self.winch else b"T")
+        except (OSError, TypeError):
+            pass
+
+    def escreve(self, texto):
+        dados = texto.encode("utf-8", "replace")
+        while dados:
+            try:
+                n = os.write(self.sai, dados)
+            except BlockingIOError:
+                import select
+                select.select([], [self.sai], [], 1)
+                continue
+            dados = dados[n:]
+
+    def tamanho(self):
+        try:
+            t = os.get_terminal_size(self.sai)
+            return max(1, t.columns), max(1, t.lines)
+        except OSError:
+            return 80, 24
+
+    def pinta(self, linhas):
+        """Desenha o quadro inteiro de uma vez (atualizacao sincronizada, sem piscar)."""
+        partes = ["\x1b[?2026h"]
+        for n, linha in enumerate(linhas, 1):
+            partes.append(f"\x1b[{n};1H{linha}\x1b[0m\x1b[K")
+        partes.append("\x1b[J\x1b[?2026l")
+        self.escreve("".join(partes))
+
+    def espera(self, segundos):
+        """Bloqueia ate ter tecla, sinal ou o tempo acabar. Devolve lista de eventos."""
+        import select
+        prontos, _, _ = select.select([self.ent, self.cano[0]], [], [], segundos)
+        eventos = []
+        if self.cano[0] in prontos:
+            try:
+                dados = os.read(self.cano[0], 256)
+            except OSError:
+                dados = b""
+            if b"T" in dados:
+                eventos.append("sinal")
+            if b"W" in dados:
+                eventos.append("tamanho")
+        if self.ent in prontos:
+            try:
+                dados = os.read(self.ent, 512)
+            except OSError:
+                dados = b""
+            if not dados:
+                eventos.append("sinal")          # o terminal foi embora
+            else:
+                eventos.extend(self._teclas(dados))
+        return eventos
+
+    def _mais(self):
+        """Resto de uma sequencia de escape que chegou partida."""
+        import select
+        if select.select([self.ent], [], [], 0.04)[0]:
+            try:
+                return os.read(self.ent, 64)
+            except OSError:
+                return b""
+        return b""
+
+    def _teclas(self, d):
+        out, i = [], 0
+        while i < len(d):
+            b = d[i]
+            if b == 0x1b:
+                if i + 1 >= len(d):
+                    resto = self._mais()
+                    if not resto:
+                        out.append("esc")
+                        break
+                    d += resto
+                    continue
+                if d[i + 1] in (0x5b, 0x4f):          # CSI ou SS3: setas, Home, End
+                    j = i + 2
+                    while j < len(d) and not 0x40 <= d[j] <= 0x7e:
+                        j += 1
+                    if j >= len(d):
+                        resto = self._mais()
+                        if not resto:
+                            break
+                        d += resto
+                        continue
+                    out.append(self.CSI_FINAL.get(d[j], "?"))
+                    i = j + 1
+                    continue
+                i += 2                                 # Alt+tecla: ignora
+                continue
+            if b in (0x0d, 0x0a):
+                out.append("enter")
+            elif b == 0x20:
+                out.append("espaco")
+            elif b == 0x03:
+                out.append("ctrl-c")
+            elif 0x21 <= b <= 0x7e:
+                out.append(chr(b).lower())
+            i += 1
+        return out
+
+
+# -------------------------------------------------------------------- hud
+class Hud:
+    """Visao ao vivo: tabela de sessoes, barra de memoria e pressao."""
+
+    def __init__(self, cor=True):
+        self.cor = cor
+        self.tema = Tema(cor)
+        self.assin = self._assinatura()
+        self.d = coleta()
+
+    def _assinatura(self):
+        # so conta o tokens.json em uso (e os de prioridade maior, para notar se aparecerem)
+        marcas = []
+        for caminho in caminhos_tokens():
+            try:
+                s = os.stat(caminho)
+            except OSError:
+                marcas.append(None)
+                continue
+            marcas.append((s.st_mtime_ns, s.st_size, s.st_ino))
+            break
+        return tuple(marcas)
+
+    def atualiza(self):
+        self.d = coleta()
+        assin = self._assinatura()
+        if assin != self.assin:          # trocaram de dominio: cores novas
+            self.assin = assin
+            self.tema = Tema(self.cor)
+
+    def quadro(self, W, H):
+        t, d = self.tema, self.d
+        if W < 30 or H < 8:
+            return [corta("janela pequena", W)] + [corta("demais :(", W)] * (H > 1)
+        cx, borda, traco = t.caixa, t.fg("primaria"), t.fg("contorno")
+        iw = W - 2
+        mg = 2 if iw >= 40 else 1
+        cw = iw - 2 * mg
+
+        def linha(segs):
+            return f"{borda}{cx['v']}{compoe(t, segs, iw, '', mg)}{borda}{cx['v']}"
+
+        def divisa():
+            return f"{borda}{cx['te']}{t.rst}{traco}{cx['h'] * iw}{t.rst}{borda}{cx['td']}"
+
+        sess, m, classe = d["sessoes"], d["memoria"], d["classe"]
+        n = len(sess)
+        resumo = sessoes_txt(n) + (f" · {mem_txt(d['mem_kb'])}" if n else "")
+        cab = [
+            linha(lados([(t.fg("primaria", negrito=True), f"{G_AGENTES}  AGENTES")],
+                        [(t.fg("secundaria"), t.rotulo)], cw)),
+            linha(lados([(t.fg("texto"), resumo)],
+                        [(t.fg(PAPEL_CLASSE[classe], negrito=classe != "ok"),
+                          (G_ALERTA + " " if classe != "ok" else "") + ROTULO_CLASSE[classe])], cw)),
+        ]
+
+        usado = max(0, m["total"] - m["disponivel"])
+        fracao = usado / m["total"] if m["total"] else 0.0
+        pct = "%d%%" % round(100 * fracao)
+        papel_barra = PAPEL_CLASSE[classe] if classe != "ok" else "primaria"
+        rotulo_mem = "memória  "
+        lb = max(6, cw - larg(rotulo_mem) - larg(pct) - 2)
+        papel_some = "erro" if (d["some"] or 0) > CRITICO_PRESSAO else \
+            "aviso" if (d["some"] or 0) > AVISO_PRESSAO else "texto"
+        if d["some"] is None:
+            pres = [(t.fg("suave"), "pressão  "), (t.fg("suave"), "sem medição")]
+        else:
+            pres = [(t.fg("suave"), "pressão  some "), (t.fg(papel_some, negrito=papel_some != "texto"),
+                                                        num(d["some"], 2)),
+                    (t.fg("suave"), "  full "), (t.fg("texto"), num(d["full"] or 0.0, 2))]
+        swap = (f"swap {mem_txt(m['swap_usado'])} de {mem_txt(m['swap_total'])}"
+                if m["swap_total"] else "sem swap")
+        mem = [
+            linha([(t.fg("suave"), rotulo_mem)] + barra(t, fracao, lb, papel_barra)
+                  + [("", "  "), (t.fg("texto", negrito=True), pct)]),
+            linha([(t.fg("suave"), "disponível "),
+                   (t.fg(PAPEL_CLASSE[classe] if classe != "ok" else "texto", negrito=True),
+                    mem_txt(m["disponivel"])),
+                   (t.fg("suave"), f" de {mem_txt(m['total'])} · {swap}")]),
+            linha(pres),
+        ]
+
+        tc, td = t.fg("primaria"), t.fg("suave")
+        rod = [linha(lados([(tc, "q"), (td, " sair   "), (tc, "r"), (td, " atualizar agora")],
+                           [(td, "a cada %s s" % num(INTERVALO_TUI_S, 0))], cw))]
+
+        if H - (5 + len(cab) + len(mem) + len(rod)) < 2:
+            mem = mem[:2]
+        if H - (5 + len(cab) + len(mem) + len(rod)) < 2:
+            cab = cab[:1]
+        corpo_h = max(1, H - (5 + len(cab) + len(mem) + len(rod)))
+
+        corpo = []
+        if not sess:
+            vazio = "Nenhuma sessão do Claude Code rodando."
+            corpo += [linha([])] * max(0, (corpo_h - 1) // 2)
+            corpo.append(linha([("", " " * max(0, (cw - larg(vazio)) // 2)), (t.fg("suave"), vazio)]))
+        else:
+            # PID, PROJETO e MEM sempre; TEMPO e PROCS se a janela der; a barrinha por
+            # sessao so entra se nao for preciso cortar o nome do projeto por causa dela
+            com_tempo = cw >= 37
+            com_procs = cw >= 44
+            fixo = 7 + 2 + 2 + 9 + (9 if com_tempo else 0) + (7 if com_procs else 0)
+            nome = min(40, max(larg(s["projeto"]) for s in sess))
+            com_barra = cw - fixo - 12 >= max(8, nome)
+            col = max(4, cw - fixo - (12 if com_barra else 0))
+            com_cabecalho = corpo_h >= 3
+            if com_cabecalho:
+                corpo.append(linha([(t.fg("suave"), f"{'PID':>7}  {enche('PROJETO', col)}"
+                                    + (f"  {'TEMPO':>7}" if com_tempo else "") + f"  {'MEM':>9}"
+                                    + (f"  {'PROCS':>5}" if com_procs else ""))]))
+            cabem = corpo_h - len(corpo)
+            mostra = sess if len(sess) <= cabem else sess[:max(0, cabem - 1)]
+            for s in mostra:
+                segs = [(t.fg("suave"), "%7d  " % s["pid"]),
+                        (t.fg("texto", negrito=True), enche(corta(s["projeto"], col), col))]
+                if com_tempo:
+                    segs.append((t.fg("texto"), "  " + enche(tempo_txt(s["tempo_s"]), 7, True)))
+                segs.append((t.fg("primaria"), "  " + enche(mem_txt(s["mem_kb"]), 9, True)))
+                if com_procs:
+                    segs.append((t.fg("suave"), "  %5d" % s["filhos"]))
+                if com_barra:
+                    parte = s["mem_kb"] / m["total"] if m["total"] else 0.0
+                    segs += [("", "  ")] + barra(t, parte, 10, "secundaria")
+                corpo.append(linha(segs))
+            if len(mostra) < len(sess):
+                resto = sess[len(mostra):]
+                corpo.append(linha([(t.fg("suave"), ("   e mais " if mostra else "   ")
+                                     + f"{sessoes_txt(len(resto))} ({mem_txt(sum(s['mem_kb'] for s in resto))})")]))
+        corpo += [linha([])] * (corpo_h - len(corpo))
+
+        topo_cx = f"{borda}{cx['se']}{cx['h'] * iw}{cx['sd']}"
+        base_cx = f"{borda}{cx['ie']}{cx['h'] * iw}{cx['id']}"
+        return [topo_cx, *cab, divisa(), *corpo[:corpo_h], divisa(), *mem, divisa(), *rod, base_cx][:H]
+
+    def roda(self):
+        import time
+        with Terminal(TITULO) as term:
+            proxima = time.monotonic() + INTERVALO_TUI_S
+            sujo = True
+            while True:
+                if sujo:
+                    term.pinta(self.quadro(*term.tamanho()))
+                    sujo = False
+                # dorme no select ate a proxima atualizacao; tecla ou sinal acordam antes
+                eventos = term.espera(max(0.0, proxima - time.monotonic()))
+                for ev in eventos:
+                    if ev in ("sinal", "q", "esc", "ctrl-c"):
+                        return 0
+                    if ev == "tamanho":
+                        sujo = True
+                    elif ev == "r":
+                        proxima = 0.0
+                if time.monotonic() >= proxima:
+                    self.atualiza()
+                    proxima = time.monotonic() + INTERVALO_TUI_S
+                    sujo = True
+
+
+# ----------------------------------------------------------------- janela
+def _argv_de_painel(pid):
+    dado = _le(f"/proc/{pid}/cmdline", 16384)
+    if not dado or NOME.encode() not in dado:
+        return None
+    return [a.decode("utf-8", "replace") for a in dado.split(b"\0") if a]
+
+
+def tuis_vivos():
+    """PIDs dos processos que sao este painel rodando (python <este script> tui)."""
+    achados, eu = [], os.getpid()
+    try:
+        nomes = os.listdir("/proc")
+    except OSError:
+        return achados
+    for nome in nomes:
+        if not nome.isdigit() or int(nome) == eu:
+            continue
+        argv = _argv_de_painel(nome)
+        if not argv or len(argv) < 3 or argv[2] != "tui" or os.path.basename(argv[1]) != NOME \
+                or not os.path.basename(argv[0]).startswith("python"):
+            continue
+        caminho = argv[1]
+        if not os.path.isabs(caminho):
+            try:
+                caminho = os.path.join(os.readlink(f"/proc/{nome}/cwd"), caminho)
+            except OSError:
+                continue
+        if os.path.realpath(caminho) == EU:
+            achados.append(int(nome))
+    return achados
+
+
+def _ancestrais(pid):
+    """O pid e os pais dele, subindo por /proc/<pid>/stat."""
+    cadeia = []
+    while pid > 1 and pid not in cadeia and len(cadeia) < 64:
+        cadeia.append(pid)
+        try:
+            with open(f"/proc/{pid}/stat", "rb") as f:
+                pid = int(f.read().rsplit(b")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+    return cadeia
+
+
+def _niri(*args):
+    """Roda `niri msg ...` se houver compositor. Devolve a saida ou None."""
+    if not os.environ.get("NIRI_SOCKET") or not qual("niri"):
+        return None
+    import subprocess
+    try:
+        r = subprocess.run(["niri", "msg", *args], capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def _janelas_niri():
+    """Janelas abertas segundo o niri, ou None se nao deu para perguntar."""
+    saida = _niri("--json", "windows")
+    if saida is None:
+        return None
+    import json
+    try:
+        janelas = json.loads(saida)
+    except ValueError:
+        return None
+    return [j for j in janelas if isinstance(j, dict)] if isinstance(janelas, list) else None
+
+
+def painel_aberto():
+    """(aberto, id da janela no niri ou None).
+
+    Com niri, quem decide e a janela: app-id do painel e o titulo que o TUI poe.
+    Se o terminal nao repassar o titulo, vale a janela do painel cujo processo e
+    pai de um TUI vivo. Sem niri para perguntar, basta existir um TUI rodando."""
+    tuis = tuis_vivos()
+    janelas = _janelas_niri()
+    if janelas is None:
+        return bool(tuis), None
+    nossas = [j for j in janelas if j.get("app_id") == CLASSE]
+    for j in nossas:
+        if j.get("title") == TITULO:
+            return True, j.get("id")
+    if tuis:
+        parentes = {p for t in tuis for p in _ancestrais(t)}
+        for j in nossas:
+            if j.get("pid") in parentes and j.get("title") not in OUTROS_PAINEIS:
+                return True, j.get("id")
+    return False, None
+
+
+def cmd_painel():
+    """Abre o painel numa janela flutuante, uma so por vez."""
+    import fcntl
+    import time
+    lancador = os.environ.get("DOMINIOS_TERMINAL") or os.path.join(AQUI, "terminal")
+    trava = os.open(EU, os.O_RDONLY)
+    try:
+        try:
+            fcntl.flock(trava, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("o painel de agentes já está abrindo.")
+            return 0
+        aberto, janela = painel_aberto()
+        if aberto:
+            if janela is not None:
+                _niri("action", "focus-window", "--id", str(janela))
+            print("o painel de agentes já está aberto.")
+            return 0
+        if not os.access(lancador, os.X_OK):
+            raise ErroUso(f"não achei o lançador de terminal em {curto(lancador)}.")
+        antes = len(tuis_vivos())
+        com_niri = _janelas_niri() is not None
+        solta([lancador, "--class", CLASSE, "-e", os.path.join(AQUI, NOME), "tui"])
+        # segura a trava ate o painel existir, pra um segundo atalho nao abrir outro
+        limite = time.monotonic() + 4
+        while time.monotonic() < limite:
+            time.sleep(0.1)
+            if painel_aberto()[0] if com_niri else len(tuis_vivos()) > antes:
+                break
+        return 0
+    finally:
+        os.close(trava)
+
+
+# ------------------------------------------------------------------- main
+def main(argv):
+    for fluxo in (sys.stdout, sys.stderr):
+        try:
+            fluxo.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    opcoes = ("--cor", "--sem-cor", "--json", "--alertar")
+    args = [a for a in argv if a not in opcoes]
+    em_json = "--json" in argv
+    sem_cor = "--sem-cor" in argv or (bool(os.environ.get("NO_COLOR")) and "--cor" not in argv)
+    cor = not sem_cor and ("--cor" in argv or sys.stdout.isatty())
+    cmd = args[0] if args else "tabela"
+    try:
+        if cmd in ("-h", "--help", "ajuda", "help"):
+            print(__doc__.strip())
+            return 0
+        if cmd == "widget":
+            return cmd_widget(em_json, "--alertar" in argv)
+        if cmd in ("tabela", "lista", "ls"):
+            return cmd_tabela(cor, em_json)
+        if cmd == "tui":
+            return Hud(cor=not sem_cor).roda()
+        if cmd == "painel":
+            return cmd_painel()
+        raise ErroUso(f"comando desconhecido '{cmd}'. Veja `agentes ajuda`.")
+    except ErroUso as e:
+        aviso(str(e))
+        if em_json:
+            imprime_json({"erro": str(e)})       # quem le JSON recebe JSON ate no erro
+        return 1
+    except BrokenPipeError:
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except OSError:
+            pass
+        return 0
+    except OSError as e:
+        onde = f" ({curto(e.filename)})" if e.filename else ""
+        aviso(f"erro de arquivo: {e.strerror or e}{onde}")
+        if em_json:
+            imprime_json({"erro": f"erro de arquivo: {e.strerror or e}"})
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,13 @@
+{
+  "settings.command.label": "Comando",
+  "settings.command.description": "Comando de shell. A saída é texto (linha 1 = rótulo, resto = dica) ou um objeto JSON {texto, dica, glifo, cor, texto_curto}.",
+  "settings.interval.label": "Intervalo (segundos)",
+  "settings.glyph.label": "Glifo",
+  "settings.text_color.label": "Cor",
+  "settings.click_command.label": "Comando do clique esquerdo",
+  "settings.right_command.label": "Comando do clique direito",
+  "settings.hide_when_empty.label": "Esconder quando a saída for vazia",
+  "settings.titulo.label": "Título",
+  "settings.cor.label": "Cor de destaque",
+  "settings.fonte.label": "Fonte do título"
+}

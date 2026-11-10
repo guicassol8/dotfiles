@@ -1,0 +1,52 @@
+/* Dominio {{nome}}. Gerado por `dominio construir`. Cores nomeadas do libadwaita e do adw-gtk3. */
+@define-color accent_color {{cor.primaria}};
+@define-color accent_bg_color {{cor.primaria}};
+@define-color accent_fg_color {{cor.sobre_primaria}};
+@define-color destructive_color {{cor.erro}};
+@define-color destructive_bg_color {{cor.erro}};
+@define-color destructive_fg_color {{cor.sobre_erro}};
+@define-color success_color {{cor.ok}};
+@define-color success_bg_color {{cor.ok|escuro:0.35}};
+@define-color success_fg_color {{cor.texto}};
+@define-color warning_color {{cor.aviso}};
+@define-color warning_bg_color {{cor.aviso|escuro:0.35}};
+@define-color warning_fg_color {{cor.texto}};
+@define-color error_color {{cor.erro}};
+@define-color error_bg_color {{cor.erro}};
+@define-color error_fg_color {{cor.sobre_erro}};
+@define-color window_bg_color {{cor.fundo}};
+@define-color window_fg_color {{cor.texto}};
+@define-color view_bg_color {{cor.superficie}};
+@define-color view_fg_color {{cor.texto}};
+@define-color headerbar_bg_color {{cor.fundo}};
+@define-color headerbar_fg_color {{cor.texto}};
+@define-color headerbar_border_color {{cor.contorno}};
+@define-color headerbar_backdrop_color {{cor.fundo}};
+@define-color headerbar_shade_color {{cor.fundo|alfa:0.5}};
+@define-color sidebar_bg_color {{cor.superficie}};
+@define-color sidebar_fg_color {{cor.texto}};
+@define-color sidebar_backdrop_color {{cor.superficie}};
+@define-color sidebar_shade_color {{cor.fundo|alfa:0.4}};
+@define-color secondary_sidebar_bg_color {{cor.superficie}};
+@define-color secondary_sidebar_fg_color {{cor.texto}};
+@define-color card_bg_color {{cor.superficie2}};
+@define-color card_fg_color {{cor.texto}};
+@define-color card_shade_color {{cor.fundo|alfa:0.4}};
+@define-color dialog_bg_color {{cor.superficie}};
+@define-color dialog_fg_color {{cor.texto}};
+@define-color popover_bg_color {{cor.superficie2}};
+@define-color popover_fg_color {{cor.texto}};
+@define-color popover_shade_color {{cor.fundo|alfa:0.4}};
+@define-color thumbnail_bg_color {{cor.superficie2}};
+@define-color thumbnail_fg_color {{cor.texto}};
+@define-color shade_color {{cor.fundo|alfa:0.4}};
+@define-color scrollbar_outline_color {{cor.contorno}};
+
+/* Cantos das janelas no raio do dominio, para casar com o recorte que o niri faz */
+window.csd,
+window.csd.dialog,
+window.dialog,
+dialog,
+decoration {
+  border-radius: {{forma.raio}}px;
+}

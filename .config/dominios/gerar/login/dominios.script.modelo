@@ -1,0 +1,355 @@
+# Dominios: tema de boot do Plymouth (plugin "script").
+#
+# A cada boot sorteia UM dominio e mostra o emblema dele, centrado sobre o fundo
+# quase preto daquele dominio, com um pulso lento e a barra de progresso na cor
+# primaria. O Plymouth roda de dentro do initramfs e nao sabe qual e o dominio
+# ativo no desktop, por isso o sorteio.
+#
+# Para fixar um dominio, acrescente ao fim de dominios.plymouth
+#     [script-env-vars]
+#     dominio_fixo=maldicao
+# e regenere o initramfs (sudo mkinitcpio -P).
+#
+# Cores e imagens saem de dominios.toml (gerar/login.py); aqui nao ha cor escrita
+# a mao. A estrutura segue o exemplo oficial do Plymouth
+# (/usr/share/plymouth/themes/script/script.script).
+
+#----------------------------------------- Dados -----------------------------------------
+
+@@DADOS@@
+
+#----------------------------------------- Sorteio ---------------------------------------
+
+escolha = Math.Int (Math.Random () * dominios.total);
+if (escolha >= dominios.total)
+  escolha = dominios.total - 1;
+if (escolha < 0)
+  escolha = 0;
+
+for (i = 0; i < dominios.total; i++)
+  {
+    if (dominios[i].chave == global.dominio_fixo)
+      escolha = i;
+  }
+
+dom = dominios[escolha];
+
+Window.SetBackgroundTopColor (dom.topo.r, dom.topo.g, dom.topo.b);
+Window.SetBackgroundBottomColor (dom.base.r, dom.base.g, dom.base.b);
+
+modo = Plymouth.GetMode ();
+estado = "normal";
+
+# no desligamento nao ha progresso para mostrar
+tem_barra = 1;
+if (modo == "shutdown" || modo == "reboot")
+  tem_barra = 0;
+
+#----------------------------------------- Pecas -----------------------------------------
+
+emblema.original = Image (dom.chave + "-emblema.png");
+emblema.image = emblema.original;
+emblema.sprite = Sprite (emblema.image);
+emblema.altura_tela = -1;
+emblema.angulo = 0;
+
+rotulo.image = Image (dom.chave + "-rotulo.png");
+rotulo.sprite = Sprite (rotulo.image);
+rotulo.sprite.SetOpacity (0.9);
+
+trilho.image = Image (dom.chave + "-trilho.png");
+trilho.sprite = Sprite (trilho.image);
+trilho.sprite.SetOpacity (tem_barra);
+
+barra.original = Image (dom.chave + "-barra.png");
+barra.sprite = Sprite ();
+barra.largura = 0;
+
+mensagem.sprite = Sprite ();
+mensagem.largura = 0;
+
+#----------------------------------------- Dialogo (senha e pergunta) --------------------
+
+fun ponto_posiciona (indice)
+  {
+    local.passo;
+
+    passo = dialogo.ponto_image.GetWidth () + 6;
+    dialogo.ponto[indice].sprite.SetPosition (dialogo.campo.x + 18 + indice * passo,
+                                              dialogo.campo.y + dialogo.campo.image.GetHeight () / 2 - dialogo.ponto_image.GetHeight () / 2,
+                                              dialogo.campo.z + 1);
+  }
+
+fun dialogo_posiciona ()
+  {
+    local.centro;
+    local.indice;
+
+    centro = Window.GetX () + Window.GetWidth () / 2;
+    dialogo.campo.x = centro - dialogo.campo.image.GetWidth () / 2;
+    dialogo.campo.y = Window.GetY () + Window.GetHeight () * 0.80 - dialogo.campo.image.GetHeight () / 2;
+    dialogo.campo.z = 10000;
+    dialogo.campo.sprite.SetPosition (dialogo.campo.x, dialogo.campo.y, dialogo.campo.z);
+    dialogo.titulo.sprite.SetPosition (centro - dialogo.titulo.largura / 2, dialogo.campo.y - 36, dialogo.campo.z);
+    dialogo.resposta.sprite.SetPosition (dialogo.campo.x + 18, dialogo.campo.y + 12, dialogo.campo.z + 1);
+    for (indice = 0; dialogo.ponto[indice]; indice++)
+      ponto_posiciona (indice);
+  }
+
+fun dialogo_monta ()
+  {
+    local.campo;
+
+    campo.image = Image (dom.chave + "-campo.png");
+    campo.sprite = Sprite (campo.image);
+    global.dialogo.campo = campo;
+    global.dialogo.ponto_image = Image (dom.chave + "-ponto.png");
+    global.dialogo.titulo.sprite = Sprite ();
+    global.dialogo.titulo.largura = 0;
+    global.dialogo.resposta.sprite = Sprite ();
+    dialogo_posiciona ();
+  }
+
+fun dialogo_opacidade (valor)
+  {
+    local.indice;
+
+    dialogo.campo.sprite.SetOpacity (valor);
+    dialogo.titulo.sprite.SetOpacity (valor);
+    dialogo.resposta.sprite.SetOpacity (valor);
+    for (indice = 0; dialogo.ponto[indice]; indice++)
+      dialogo.ponto[indice].sprite.SetOpacity (valor);
+  }
+
+fun dialogo_titulo (texto)
+  {
+    local.imagem;
+
+    imagem = Image.Text (texto, dom.texto.r, dom.texto.g, dom.texto.b);
+    if (imagem)
+      {
+        dialogo.titulo.sprite.SetImage (imagem);
+        dialogo.titulo.largura = imagem.GetWidth ();
+      }
+  }
+
+#----------------------------------------- Composicao ------------------------------------
+
+fun posiciona ()
+  {
+    local.largura;
+    local.altura;
+    local.centro;
+    local.topo;
+    local.lado;
+
+    largura = Window.GetWidth ();
+    altura = Window.GetHeight ();
+    centro = Window.GetX () + largura / 2;
+    topo = Window.GetY ();
+
+    # emblema: no maximo 36% da altura da tela
+    if (altura != emblema.altura_tela)
+      {
+        lado = emblema.original.GetHeight ();
+        if (altura > 0 && lado > altura * 0.36)
+          lado = Math.Int (altura * 0.36);
+        if (lado == emblema.original.GetHeight ())
+          emblema.image = emblema.original;
+        else
+          emblema.image = emblema.original.Scale (lado, lado);
+        emblema.sprite.SetImage (emblema.image);
+        emblema.altura_tela = altura;
+      }
+
+    emblema.x = centro - emblema.image.GetWidth () / 2;
+    emblema.y = topo + altura * 0.43 - emblema.image.GetHeight () / 2;
+    emblema.sprite.SetPosition (emblema.x, emblema.y, 10);
+
+    rotulo.sprite.SetPosition (centro - rotulo.image.GetWidth () / 2,
+                               emblema.y + emblema.image.GetHeight () + 14,
+                               10);
+
+    barra.x = centro - trilho.image.GetWidth () / 2;
+    barra.y = topo + altura * 0.80;
+    trilho.sprite.SetPosition (barra.x, barra.y, 10);
+    barra.sprite.SetPosition (barra.x, barra.y, 11);
+
+    mensagem.sprite.SetPosition (centro - mensagem.largura / 2, topo + altura * 0.88, 20);
+
+    if (global.dialogo)
+      dialogo_posiciona ();
+  }
+
+posiciona ();
+Plymouth.SetDisplayHotplugFunction (posiciona);
+
+#----------------------------------------- Pulso -----------------------------------------
+
+fun refresh_callback ()
+  {
+    local.opacidade;
+
+    if (global.estado == "normal")
+      {
+        emblema.angulo += ((2 * Math.Pi) / 50) * 0.4;  # 0,4 Hz a 50 quadros por segundo
+        if (emblema.angulo > 2 * Math.Pi)
+          emblema.angulo -= 2 * Math.Pi;
+        opacidade = 0.78 + 0.22 * (Math.Cos (emblema.angulo) + 1) / 2;
+        emblema.sprite.SetOpacity (opacidade);
+      }
+    else
+      {
+        emblema.sprite.SetOpacity (0.5);
+      }
+  }
+
+Plymouth.SetRefreshFunction (refresh_callback);
+
+#----------------------------------------- Progresso -------------------------------------
+
+fun barra_opacidade (valor)
+  {
+    trilho.sprite.SetOpacity (valor);
+    if (barra.largura > 0)
+      barra.sprite.SetOpacity (valor);
+    else
+      barra.sprite.SetOpacity (0);
+  }
+
+fun mostra_progresso (fracao)
+  {
+    local.largura;
+
+    if (fracao < 0)
+      fracao = 0;
+    if (fracao > 1)
+      fracao = 1;
+    largura = Math.Int (barra.original.GetWidth () * fracao);
+    if (largura != barra.largura)
+      {
+        barra.largura = largura;
+        if (largura > 0)
+          barra.sprite.SetImage (barra.original.Scale (largura, barra.original.GetHeight ()));
+        if (global.estado == "normal")
+          barra_opacidade (tem_barra);
+      }
+  }
+
+fun progress_callback (duracao, progresso)
+  {
+    mostra_progresso (progresso);
+  }
+
+Plymouth.SetBootProgressFunction (progress_callback);
+
+# atualizacoes offline mandam o progresso de 0 a 100
+fun system_update_callback (porcento)
+  {
+    global.tem_barra = 1;
+    mostra_progresso (porcento / 100);
+  }
+
+Plymouth.SetSystemUpdateFunction (system_update_callback);
+
+#----------------------------------------- Normal, senha e pergunta ----------------------
+
+fun display_normal_callback ()
+  {
+    global.estado = "normal";
+    if (global.dialogo)
+      dialogo_opacidade (0);
+    barra_opacidade (tem_barra);
+  }
+
+fun display_password_callback (pergunta, pontos)
+  {
+    local.indice;
+    local.maximo;
+
+    global.estado = "senha";
+    if (!global.dialogo)
+      dialogo_monta ();
+    barra_opacidade (0);
+    dialogo_opacidade (1);
+    dialogo.resposta.sprite.SetOpacity (0);
+    dialogo_titulo (pergunta);
+    dialogo_posiciona ();
+
+    # so cabem tantos pontos no campo
+    maximo = Math.Int ((dialogo.campo.image.GetWidth () - 36) / (dialogo.ponto_image.GetWidth () + 6));
+    if (pontos > maximo)
+      pontos = maximo;
+    for (indice = 0; dialogo.ponto[indice] || indice < pontos; indice++)
+      {
+        if (!dialogo.ponto[indice])
+          {
+            dialogo.ponto[indice].sprite = Sprite (dialogo.ponto_image);
+            ponto_posiciona (indice);
+          }
+        if (indice < pontos)
+          dialogo.ponto[indice].sprite.SetOpacity (1);
+        else
+          dialogo.ponto[indice].sprite.SetOpacity (0);
+      }
+  }
+
+fun display_question_callback (pergunta, resposta)
+  {
+    local.indice;
+    local.imagem;
+
+    global.estado = "pergunta";
+    if (!global.dialogo)
+      dialogo_monta ();
+    barra_opacidade (0);
+    dialogo_opacidade (1);
+    for (indice = 0; dialogo.ponto[indice]; indice++)
+      dialogo.ponto[indice].sprite.SetOpacity (0);
+    dialogo_titulo (pergunta);
+    imagem = Image.Text (resposta, dom.texto.r, dom.texto.g, dom.texto.b);
+    if (imagem)
+      dialogo.resposta.sprite.SetImage (imagem);
+    dialogo_posiciona ();
+  }
+
+Plymouth.SetDisplayNormalFunction (display_normal_callback);
+Plymouth.SetDisplayPasswordFunction (display_password_callback);
+Plymouth.SetDisplayQuestionFunction (display_question_callback);
+
+#----------------------------------------- Mensagens -------------------------------------
+
+fun display_message_callback (texto)
+  {
+    local.imagem;
+
+    imagem = Image.Text (texto, dom.suave.r, dom.suave.g, dom.suave.b);
+    if (imagem)
+      {
+        mensagem.sprite.SetImage (imagem);
+        mensagem.largura = imagem.GetWidth ();
+        mensagem.sprite.SetOpacity (1);
+        mensagem.sprite.SetPosition (Window.GetX () + Window.GetWidth () / 2 - mensagem.largura / 2,
+                                     Window.GetY () + Window.GetHeight () * 0.88,
+                                     20);
+      }
+  }
+
+fun hide_message_callback (texto)
+  {
+    mensagem.sprite.SetOpacity (0);
+  }
+
+Plymouth.SetDisplayMessageFunction (display_message_callback);
+Plymouth.SetHideMessageFunction (hide_message_callback);
+
+#----------------------------------------- Saida -----------------------------------------
+
+fun quit_callback ()
+  {
+    emblema.sprite.SetOpacity (1);
+    if (modo == "boot")
+      mostra_progresso (1);
+  }
+
+Plymouth.SetQuitFunction (quit_callback);

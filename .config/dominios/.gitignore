@@ -1,0 +1,20 @@
+# Saida gerada: volta com `dominio arte`, `dominio construir` e `gerar/login.py sddm plymouth`
+_build/
+atual
+.atual.tmp
+papeis/
+sons/
+__pycache__/
+chrome-nova-aba/dominio.json
+chrome-nova-aba/papel.png
+root/sddm/dominios/arte/
+root/sddm/dominios/fontes/
+root/sddm/dominios/dominios.js
+root/sddm/dominios/theme.conf.user
+root/sddm/dominios/.gerando/
+root/plymouth/dominios/*.png
+root/plymouth/dominios/dominios.script
+shell/modo-seguro
+
+# Pessoal: tua rotina diaria. Fica so na maquina; apaga esta linha se quiser publicar.
+missoes.toml

@@ -1,0 +1,19 @@
+// Atalhos dos Dominios. Incluido no fim de ~/.config/niri/config.kdl.
+// So o Mod+Return ja existia (abria o Alacritty); os outros sao novos.
+binds {
+    Mod+Return        hotkey-overlay-title="Terminal: kitty (reserva: alacritty)" { spawn-sh "~/.config/dominios/bin/terminal"; }
+    Mod+Shift+Return  hotkey-overlay-title="Terminal reserva: Alacritty" { spawn "alacritty"; }
+    Mod+X             hotkey-overlay-title="Expansão de Domínio: escolher" { spawn-sh "~/.config/dominios/bin/dominio menu"; }
+    Mod+Shift+X       hotkey-overlay-title="Expansão de Domínio: próximo" { spawn-sh "~/.config/dominios/bin/dominio proximo"; }
+    Mod+M             hotkey-overlay-title="Missões diárias" { spawn-sh "~/.config/dominios/shell/ipc missoes"; }
+    Mod+A             hotkey-overlay-title="HUD de agentes" { spawn-sh "~/.config/dominios/shell/ipc agentes"; }
+    Mod+N             hotkey-overlay-title="Modo apresentação: liga/desliga" { spawn-sh "~/.config/dominios/bin/dominio apresentar"; }
+}
+
+// Paineis flutuantes dos Dominios (missoes, agentes, seletor reserva)
+window-rule {
+    match app-id="^dominio-painel$"
+    open-floating true
+    default-column-width { fixed 620; }
+    default-window-height { fixed 560; }
+}

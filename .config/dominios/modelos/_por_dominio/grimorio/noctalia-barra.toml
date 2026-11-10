@@ -1,0 +1,37 @@
+# Grimorio: faixa flutuante no topo, canto suave, relogio em Cinzel
+[bar.default]
+position           = "top"
+thickness          = 38
+margin_edge        = 10
+margin_ends        = 16
+radius             = {{forma.raio}}
+concave_edge_corners = false
+background_opacity = 0.90
+border             = "outline_variant"
+border_width       = 1.0
+shadow             = true
+padding            = 18
+widget_spacing     = 12
+font_weight        = 500
+capsule            = false
+start  = ["dominio", "workspaces", "active_window"]
+center = ["clock"]
+end    = ["media", "missoes", "agentes", "tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center"]
+
+[widget.clock]
+format         = "{:%H:%M}"
+tooltip_format = "{:%A, %d de %B de %Y}"
+font_family    = "{{fonte.destaque}}"
+font_weight    = 700
+color          = "on_surface"
+
+[widget.workspaces]
+style         = "regular"
+focused_color = "primary"
+
+[notification]
+position = "top_right"
+
+[desktop_widgets]
+enabled      = true
+widget_order = []

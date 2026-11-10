@@ -1,0 +1,27 @@
+#!/bin/sh
+# VS Code: mantem os temas da extensao dominios.dominios-tema ligados ao _build/.
+# Roda a cada troca de dominio (bin/dominio passa a chave do dominio em $1).
+#   link de tema quebrado ou trocado por copia  -> refaz o link (barato)
+#   dominio novo que a extensao ainda nao tem   -> reinstala com gerar/vscode.py
+#   extensao removida de proposito              -> nao faz nada
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+ext=""
+for p in "$HOME"/.vscode/extensions/dominios.dominios-tema-*; do
+    [ -f "$p/package.json" ] && ext=$p
+done
+[ -n "$ext" ] || exit 0
+
+refazer=0
+for tema in "$raiz"/_build/*/vscode-tema.json; do
+    [ -f "$tema" ] || continue
+    d=$(basename "$(dirname "$tema")")
+    if grep -q "themes/$d\.json" "$ext/package.json"; then
+        [ "$(readlink "$ext/themes/$d.json" 2>/dev/null)" = "$tema" ] || ln -sfn "$tema" "$ext/themes/$d.json"
+    else
+        refazer=1
+    fi
+done
+if [ "$refazer" = 1 ] && command -v code >/dev/null 2>&1; then
+    exec python3 "$raiz/gerar/vscode.py"
+fi
+exit 0
