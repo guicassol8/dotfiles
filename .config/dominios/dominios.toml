@@ -263,7 +263,7 @@ raio = 20
 borda = 2
 vaos = 12
 opacidade_terminal = 0.88
-barra = "base"
+barra = "topo"
 
 # ---------------------------------------------------------------- MALDICAO
 # JJK, Chainsaw Man e capa de phonk: preto, sangue e osso, cantos vivos.

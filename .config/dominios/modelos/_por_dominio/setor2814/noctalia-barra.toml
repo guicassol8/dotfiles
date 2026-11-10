@@ -1,6 +1,6 @@
-# Setor 2814: pilula de luz embaixo, cada grupo numa capsula
+# Setor 2814: pilula de luz no topo, cada grupo numa capsula
 [bar.default]
-position           = "bottom"
+position           = "top"
 thickness          = 40
 margin_edge        = 10
 margin_ends        = 200

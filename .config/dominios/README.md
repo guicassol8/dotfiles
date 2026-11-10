@@ -10,7 +10,7 @@ Feito em 10/11/2026. Tudo o que define aparência está em **um arquivo**:
 |---|---|---|
 | `sistema` | Solo Leveling | Azul elétrico no preto, barra de HUD no topo, janela de missões viva na área de trabalho |
 | `grimorio` | Despertar da Mana | Cores do `identidade/tokens.toml` do livro (o tema escuro que estava pronto e sem uso), Cinzel, teu sigilo |
-| `setor2814` | Tropa dos Lanternas | Esmeralda, barra em pílula embaixo, cores do terminal = espectro emocional |
+| `setor2814` | Tropa dos Lanternas | Esmeralda, barra em pílula no topo, cores do terminal = espectro emocional |
 | `maldicao` | JJK, Chainsaw Man, phonk | Preto, sangue e osso, canto vivo, barra vertical na esquerda |
 | `neutro` | Nada | Modo apresentação: grafite com azul, barra comum no topo, papel de dunas. Fora do ciclo |
 
