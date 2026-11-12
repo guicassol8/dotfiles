@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""nova-aba-estado: monta o estado.json e a cena.png da nova aba do Chrome.
+
+Uso: nova-aba-estado [elemento]    (sem argumento, usa o elemento ativo)
+Le elemento.json e jogador.json do estado do usuario e pede ao nucleo os canais
+oficios e pagina (uma vez, sem som). Escreve em chrome-nova-aba/ de forma atomica (logica em hud/dados/nova_aba.py,
+compartilhada com o nucleo, que mantem o arquivo em dia enquanto o HUD roda).
+Chamado pelos ganchos elemento.d/50-nova-aba e expandir.d/50-nova-aba.
+Ambiente de teste: NOVA_ABA_PASTA (destino), DOMINIOS_ESTADO (pasta de estado).
+"""
+import json
+import os
+import subprocess
+import sys
+
+AQUI = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(AQUI), "hud/dados"))
+import nova_aba  # noqa: E402  (logica comum com o nucleo)
+
+
+def canais():
+    """oficios e pagina vindos do nucleo; {} se ele falhar."""
+    saida = {}
+    try:
+        r = subprocess.run(
+            [os.path.join(AQUI, "nucleo"), "--uma-vez", "--canal", "oficios", "--canal", "pagina"],
+            capture_output=True, text=True, timeout=8)
+        for linha in r.stdout.splitlines():
+            try:
+                m = json.loads(linha)
+                saida[m["canal"]] = m["dados"]
+            except (ValueError, KeyError, TypeError):
+                pass
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return saida
+
+
+def main(argv):
+    if not os.path.isdir(nova_aba.pasta()):
+        return 0
+    antigo = nova_aba.le(os.path.join(nova_aba.pasta(), "estado.json"))
+    est_dir = nova_aba.pasta_estado()
+    c = canais()
+    estado = nova_aba.monta(
+        antigo, nova_aba.le(os.path.join(est_dir, "elemento.json")),
+        nova_aba.le(os.path.join(est_dir, "jogador.json")),
+        c.get("oficios") or {}, c.get("pagina") or {}, (argv[1] if len(argv) > 1 else "") or None)
+    nova_aba.grava(estado)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

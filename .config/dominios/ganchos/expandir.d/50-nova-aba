@@ -1,0 +1,7 @@
+#!/bin/sh
+# Nova aba do Chrome: atualiza estado.json e cena.png (elemento: $1 = elemento novo).
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+case "$1" in
+    fogo|agua|terra|vento|eletricidade|mana-pura) exec "$raiz/bin/nova-aba-estado" "$1" ;;
+    *) exec "$raiz/bin/nova-aba-estado" ;;
+esac

@@ -159,3 +159,227 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .pronto body, .papel, .busca, .lupa { transition: none; }
 }
+
+/* ===================== Grimorio (HD-2D) =====================
+   So aparece com html.grim (nova-aba.js liga quando dominio.json diz grimorio).
+   1 pixel de arte = --p (3px em 1080p). Animacao so por transform/opacity. */
+@font-face { font-family: "Silkscreen"; src: url("fontes/Silkscreen-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Silkscreen"; src: url("fontes/Silkscreen-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Jersey 15"; src: url("fontes/Jersey15-Regular.ttf"); }
+@font-face { font-family: "Alegreya Sans"; src: url("fontes/AlegreyaSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Alegreya Sans"; src: url("fontes/AlegreyaSans-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Alegreya Sans"; src: url("fontes/AlegreyaSans-Italic.ttf"); font-style: italic; }
+
+html:not(.grim) .g-tela { display: none; }
+.grim main, .grim .papel, .grim .veu { display: none; }
+
+html.grim { --p: 3px; --el: #B4A5DD; --tinta: #0c0a10; }
+@supports (width: round(down, 1vh, 1px)) {
+  html.grim { --p: max(2px, round(down, calc(100vh / 360), 1px)); }
+}
+.grim body { background: #17141D; }
+.g-tela { position: fixed; inset: 0; overflow: hidden; color: #EDE7F6; font-family: "Alegreya Sans", system-ui, sans-serif; }
+
+.g-cena {
+  position: absolute; inset: 0;
+  background: #17141D center / cover no-repeat;
+  image-rendering: pixelated; filter: brightness(1.35) saturate(1.1);
+  opacity: 0; transition: opacity 0.5s ease-out;
+}
+.g-cena.visivel { opacity: 1; }
+
+.g-brilho {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 46% 42% at 50% 46%, color-mix(in srgb, var(--el) 34%, transparent), transparent 70%);
+  opacity: 0.35;
+  animation: g-pulso 7s ease-in-out infinite alternate;
+}
+@keyframes g-pulso { to { opacity: 0.85; } }
+
+.g-vinheta {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 62% 58% at 50% 42%, rgba(12,10,16,0.5), rgba(12,10,16,0.18) 55%, transparent 80%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, rgba(8,6,12,0.72) 100%),
+    linear-gradient(to bottom, rgba(8,6,12,0.25), transparent 24%, transparent 60%, rgba(8,6,12,0.7));
+}
+
+.g-particulas { position: absolute; inset: 0; pointer-events: none; }
+.g-particulas i {
+  position: absolute; bottom: -4vh; left: var(--x);
+  width: var(--t); height: var(--t);
+  background: var(--el);
+  box-shadow: 0 0 calc(var(--t) * 3) var(--el);
+  opacity: 0;
+  animation: g-sobe var(--d) linear var(--a) infinite;
+  will-change: transform, opacity;
+}
+@keyframes g-sobe {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: 0.9; }
+  80% { opacity: 0.7; }
+  100% { transform: translate(var(--dx), -108vh); opacity: 0; }
+}
+.g-particulas.vento i { animation-name: g-vento; bottom: auto; top: var(--y); left: -3vw; }
+@keyframes g-vento {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translate(108vw, var(--dx)); opacity: 0; }
+}
+.g-particulas.eletricidade i { animation-name: g-faisca; bottom: auto; top: var(--y); animation-timing-function: steps(1); animation-iteration-count: infinite; }
+@keyframes g-faisca { 0%, 86%, 100% { opacity: 0; } 88% { opacity: 1; } 92% { opacity: 0.2; } 94% { opacity: 1; } }
+
+.g-centro {
+  position: absolute; inset: 0 0 calc(var(--p) * 62) 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.g-saudacao, .g-data, .g-relogio { margin: 0; }
+.g-saudacao {
+  font-family: "Silkscreen", monospace; font-weight: 700;
+  font-size: calc(var(--p) * 8); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--el);
+  text-shadow: 0 var(--p) 0 var(--tinta), 0 0 20px color-mix(in srgb, var(--el) 60%, transparent);
+}
+.g-relogio {
+  font-family: "Jersey 15", "Silkscreen", monospace; font-weight: 400;
+  font-size: calc(var(--p) * 66); line-height: 1; letter-spacing: 0.04em;
+  margin-top: calc(var(--p) * 3);
+  color: #F5F0FF;
+  text-shadow:
+    0 calc(var(--p) * 2) 0 var(--tinta),
+    0 0 48px color-mix(in srgb, var(--el) 55%, transparent);
+}
+.g-data {
+  margin-top: calc(var(--p) * 2);
+  font-size: calc(var(--p) * 8); font-weight: 500; letter-spacing: 0.05em;
+  color: #D9D1E6; text-shadow: 0 2px 0 var(--tinta), 0 0 18px rgba(12,10,16,0.9);
+}
+.g-data::first-letter { text-transform: uppercase; }
+
+/* moldura de pixel: cantos recortados e duas linhas internas */
+.g-busca, .g-painel {
+  --cor-moldura: color-mix(in srgb, var(--el) 55%, #3A3348);
+  background: color-mix(in srgb, #1F1A28 86%, transparent);
+  clip-path: polygon(
+    var(--p) 0, calc(100% - var(--p)) 0, calc(100% - var(--p)) var(--p), 100% var(--p),
+    100% calc(100% - var(--p)), calc(100% - var(--p)) calc(100% - var(--p)), calc(100% - var(--p)) 100%,
+    var(--p) 100%, var(--p) calc(100% - var(--p)), 0 calc(100% - var(--p)), 0 var(--p), var(--p) var(--p));
+  box-shadow:
+    inset 0 0 0 var(--p) var(--cor-moldura),
+    inset 0 0 0 calc(var(--p) * 2) var(--tinta),
+    inset 0 calc(var(--p) * 3) 0 calc(var(--p) * 2) transparent;
+}
+.g-busca {
+  display: flex; align-items: center; gap: calc(var(--p) * 4);
+  width: min(calc(var(--p) * 230), 86vw);
+  margin-top: calc(var(--p) * 11);
+  padding: 0 calc(var(--p) * 8);
+}
+.g-busca:focus-within { --cor-moldura: var(--el); background: color-mix(in srgb, #2C2440 88%, transparent); }
+
+/* lupa em pixel: circulo de 5x5 e cabo, desenhados com box-shadow */
+.g-lupa {
+  --lc: #B0A7C4;
+  --u: var(--p); flex: none; position: relative;
+  width: var(--u); height: var(--u);
+  margin: calc(var(--u) * 2) calc(var(--u) * 5) calc(var(--u) * 5) calc(var(--u) * 2);
+  background: var(--lc);
+  box-shadow:
+    var(--u) calc(var(--u) * -1) var(--lc), calc(var(--u) * 2) calc(var(--u) * -1) var(--lc),
+    calc(var(--u) * 3) 0 var(--lc), calc(var(--u) * 3) var(--u) var(--lc),
+    calc(var(--u) * 3) calc(var(--u) * 2) var(--lc),
+    var(--u) calc(var(--u) * 3) var(--lc), calc(var(--u) * 2) calc(var(--u) * 3) var(--lc),
+    0 var(--u) var(--lc), 0 calc(var(--u) * 2) var(--lc),
+    calc(var(--u) * 4) calc(var(--u) * 3) var(--lc), calc(var(--u) * 5) calc(var(--u) * 4) var(--lc);
+}
+.g-busca:focus-within .g-lupa { --lc: var(--el); }
+.g-busca input {
+  flex: 1; min-width: 0; height: calc(var(--p) * 20); padding: 0;
+  background: none; border: 0; outline: 0;
+  color: #F5F0FF; caret-color: var(--el);
+  font: 400 calc(var(--p) * 8) "Alegreya Sans", system-ui, sans-serif; letter-spacing: 0.02em;
+}
+.g-busca input::placeholder { color: color-mix(in srgb, var(--el) 62%, #B0A7C4); opacity: 0.85; font-style: italic; }
+.g-busca input::selection { background: color-mix(in srgb, var(--el) 45%, transparent); }
+
+.g-base {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 0 calc(var(--p) * 14) calc(var(--p) * 8);
+  display: flex; flex-direction: column; align-items: center; gap: calc(var(--p) * 5);
+}
+.g-frase {
+  margin: 0; max-width: calc(var(--p) * 300); text-align: center;
+  font-size: calc(var(--p) * 8); font-style: italic; line-height: 1.3; color: #EDE7F6;
+  text-shadow: 0 2px 0 var(--tinta), 0 0 18px rgba(12,10,16,0.95);
+}
+.g-frase[hidden] { display: none; }
+.g-frase q { quotes: "“" "”"; }
+.g-frase cite {
+  font-style: normal; margin-left: calc(var(--p) * 4); white-space: nowrap;
+  font-family: "Silkscreen", monospace; font-size: calc(var(--p) * 5); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--el);
+}
+.g-frase cite::before { content: "\25C6  "; font-size: 0.8em; }
+.g-frase cite:empty { display: none; }
+
+.g-faixa {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--p) * 4);
+  width: min(calc(var(--p) * 540), 94vw);
+}
+.g-painel { padding: calc(var(--p) * 6) calc(var(--p) * 8) calc(var(--p) * 7); min-width: 0; }
+.g-painel h2 {
+  margin: 0 0 calc(var(--p) * 4);
+  display: flex; justify-content: space-between; align-items: baseline;
+  font: 400 calc(var(--p) * 6) "Silkscreen", monospace; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #B0A7C4;
+}
+.g-painel h2 b { font-family: "Jersey 15", "Silkscreen", monospace; font-weight: 400; font-size: calc(var(--p) * 14); line-height: 0.7; color: #FFD43B; text-shadow: 0 var(--p) 0 var(--tinta); letter-spacing: 0.02em; }
+.g-painel p { margin: calc(var(--p) * 4) 0 0; font-size: calc(var(--p) * 7.5); line-height: 1.25; color: #D9D1E6; display: flex; justify-content: space-between; gap: calc(var(--p) * 3); }
+.g-nivel p span:last-child { color: #B0A7C4; text-align: right; }
+
+.g-barra {
+  height: calc(var(--p) * 6); background: var(--tinta); padding: var(--p);
+  box-shadow: 0 0 0 var(--p) #3A3348;
+}
+.g-barra i {
+  display: block; height: 100%; width: var(--v, 0%);
+  background: repeating-linear-gradient(to right, #FFD43B 0 calc(var(--p) * 3), #C9A52A calc(var(--p) * 3) calc(var(--p) * 4));
+  box-shadow: inset 0 var(--p) 0 rgba(255,255,255,0.35);
+}
+.g-pips { display: flex; gap: var(--p); height: calc(var(--p) * 6); }
+.g-pips i { flex: 1; background: var(--tinta); box-shadow: 0 0 0 var(--p) #3A3348; margin: var(--p) 0; }
+.g-pips i.feito { background: #74C5B0; box-shadow: 0 0 0 var(--p) #3A3348, inset 0 var(--p) 0 rgba(255,255,255,0.35); }
+
+.g-elemento { position: relative; }
+.g-gema {
+  --u: var(--p);
+  height: calc(var(--p) * 6); display: flex; align-items: center;
+}
+.g-gema::before {
+  content: ""; width: calc(var(--p) * 6); height: calc(var(--p) * 6); background: var(--el);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  filter: drop-shadow(0 0 6px var(--el));
+  animation: g-pulso 3.5s ease-in-out infinite alternate;
+}
+.g-gema::after {
+  content: ""; flex: 1; margin-left: calc(var(--p) * 3); height: var(--p);
+  background: linear-gradient(to right, var(--el), transparent);
+}
+.g-elemento h2 b { font-size: calc(var(--p) * 8); font-family: "Silkscreen", monospace; line-height: 1; color: var(--el); letter-spacing: 0.06em; text-transform: uppercase; }
+.g-elemento p { display: block; font-style: italic; }
+
+.g-atualizado {
+  margin: 0; font: 400 calc(var(--p) * 4) "Silkscreen", monospace; letter-spacing: 0.1em;
+  color: rgba(176,167,196,0.55); text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .g-faixa { grid-template-columns: 1fr; }
+  .g-centro { bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-brilho, .g-particulas i, .g-gema::before { animation: none; }
+  .g-particulas { display: none; }
+  .g-cena { transition: none; }
+}

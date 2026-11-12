@@ -1,0 +1,5 @@
+#!/bin/sh
+# Tema do Claude Code: acompanha o dominio ativo ($1 = dominio novo).
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+[ -n "$1" ] && export CLAUDE_TEMA_DOMINIO="$1"
+exec "$raiz/bin/claude-tema" >/dev/null 2>&1

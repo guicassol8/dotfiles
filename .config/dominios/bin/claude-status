@@ -1,0 +1,70 @@
+#!/bin/sh
+# Linha de status do Claude Code: elemento, nivel e oficios na esquerda; modelo e contexto na direita.
+# Le o JSON da sessao no stdin. Nunca sai com erro nem imprime vazio.
+# Teste: CLAUDE_STATUS_DOMINIO, CLAUDE_STATUS_ELEMENTO, CLAUDE_STATUS_COR (truecolor|256).
+raiz=$(dirname "$(dirname "$(readlink -f "$0")")")
+est="$HOME/.local/state/dominios"
+entrada=$(cat 2>/dev/null)
+dom="${CLAUDE_STATUS_DOMINIO:-}"
+if [ -z "$dom" ]; then l=$(readlink "$raiz/atual" 2>/dev/null); dom=${l##*/}; fi
+cor="${CLAUDE_STATUS_COR:-}"
+if [ -z "$cor" ]; then
+    case "${COLORTERM:-}" in truecolor|24bit) cor=truecolor ;; *) cor=256 ;; esac
+fi
+f() { if [ -f "$1" ]; then printf %s "$1"; else printf /dev/null; fi; }
+tema=$(f "$raiz/_build/$dom/hud-tema.json")
+[ "$dom" = neutro ] && tema=/dev/null
+
+linha=$(jq -nr --arg s "$entrada" --arg dom "$dom" --arg cor "$cor" --arg el "${CLAUDE_STATUS_ELEMENTO:-}" \
+    --argjson cols "${COLUMNS:-0}" \
+    --slurpfile t "$tema" --slurpfile e "$(f "$est/elemento.json")" \
+    --slurpfile j "$(f "$est/jogador.json")" --slurpfile m "$(f "$est/missoes.json")" '
+  def rgb: ltrimstr("#") | . as $h | [range(0;6;2) | $h[.:.+2] | ascii_downcase | explode
+      | map(if . > 96 then . - 87 else . - 48 end) | .[0]*16 + .[1]];
+  def esc($h): if $h == null then "" else ($h|rgb) as $c
+      | if $cor == "truecolor" then "\u001b[38;2;\($c[0]);\($c[1]);\($c[2])m"
+        else "\u001b[38;5;\(16 + 36*(($c[0]*5/255)|round) + 6*(($c[1]*5/255)|round) + (($c[2]*5/255)|round))m" end end;
+  def pad: .;
+  ($s | fromjson? // {}) as $in
+  | ($t[0] // null) as $tm | ($e[0] // {}) as $es | ($j[0] // {}) as $js | ($m[0] // {}) as $ms
+  | ($in.model.display_name // $in.model.id // "claude") as $modelo
+  | ($in.context_window.used_percentage // null) as $pct
+  | "\u001b[0m" as $rs
+  | (if $tm then esc($tm.cor.texto_suave) else "\u001b[2m" end) as $suave
+  | (if $tm then esc($tm.cor.texto) else "" end) as $txt
+  | ($el | if . == "" then ($es.elemento // "") else . end) as $elem
+  | (if $tm == null then null
+     elif $dom == "grimorio" then ($tm.elementos[$elem] // $tm.cor.primaria)
+     else $tm.cor.primaria end) as $dest
+  | ({"fogo":["▲","Fogo"],"agua":["≈","Água"],"terra":["■","Terra"],"vento":["~","Vento"],
+      "eletricidade":["↯","Eletricidade"],"mana-pura":["✦","Mana Pura"]}[$elem] // ["✦",""]) as $g
+  | (if $dom == "grimorio" then ($g[0] + " " + $g[1]) else ($tm.nome // $dom) end) as $nome
+  | (now | strflocaltime("%F")) as $hoje
+  | ($ms.dias[$hoje] // null) as $dia
+  | ([ (if $tm then {c:esc($dest), t:$nome} else empty end),
+       (if $tm and $js.nivel then {c:$suave, t:("NV." + ($js.nivel|tostring) + " ▪ " + ($js.rank // ""))} else empty end),
+       (if $tm and $dia then {c:$suave, t:("ofícios " + (($dia.feitas|length)|tostring) + "/" + (($dia.agendadas|length)|tostring))} else empty end)
+     ]) as $esq
+  | ($modelo + (if $pct != null then " ▪ ctx " + (($pct|floor)|tostring) + "%" else "" end)) as $dir_t
+  | (if $tm and $pct != null then (if $pct >= 90 then esc($tm.cor.erro) elif $pct >= 70 then esc($tm.cor.aviso) else $suave end) else $suave end) as $cctx
+  | ($esq | map(.c + .t + $rs) | join($suave + "  ▪  " + $rs)) as $esq_c
+  | ($esq | map(.t) | join("  ▪  ")) as $esq_p
+  | ($cctx + $dir_t + $rs) as $dir_c
+  | (if ($esq|length) == 0 then $dir_c
+     else ($cols - 46 - ($esq_p|length) - ($dir_t|length)) as $n
+       | $esq_c + (if $cols > 0 and $n >= 2 then (" " * $n) else "   " end) + $dir_c end)
+  ' 2>/dev/null)
+
+[ -n "$linha" ] || linha="claude"
+
+antigo="$raiz/claude-statusline-antigo"
+if [ -f "$antigo" ] && [ "$dom" != neutro ]; then
+    ant=$(printf %s "$entrada" | sh -c "$(cat "$antigo")" 2>/dev/null | head -n1)
+    if [ -n "$ant" ]; then
+        # segmento do elemento (so a parte esquerda) na frente do comando antigo
+        printf '%s  %s\n' "${linha%%   *}" "$ant"
+        exit 0
+    fi
+fi
+printf '%s\n' "$linha"
+exit 0

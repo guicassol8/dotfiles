@@ -23,5 +23,43 @@
   </form>
   <p class="lema" id="lema"></p>
 </main>
+<section class="g-tela" id="grim" aria-label="Grimório">
+  <div class="g-cena" id="g-cena" aria-hidden="true"></div>
+  <div class="g-brilho" aria-hidden="true"></div>
+  <div class="g-vinheta" aria-hidden="true"></div>
+  <div class="g-particulas" id="g-particulas" aria-hidden="true"></div>
+  <div class="g-centro">
+    <p class="g-saudacao" id="g-saudacao"></p>
+    <h1 class="g-relogio" id="g-relogio" aria-live="off"></h1>
+    <p class="g-data" id="g-data"></p>
+    <form class="g-busca" id="g-busca" role="search" autocomplete="off">
+      <span class="g-lupa" aria-hidden="true"></span>
+      <input id="g-q" name="q" type="text" inputmode="search" enterkeyhint="search" autofocus
+             spellcheck="false" autocapitalize="off" aria-label="Buscar na web"
+             placeholder="Invoque uma busca ou digite um endereço">
+    </form>
+  </div>
+  <div class="g-base">
+    <p class="g-frase" id="g-frase" hidden><q id="g-frase-t"></q><cite id="g-frase-a"></cite></p>
+    <div class="g-faixa">
+      <div class="g-painel g-nivel">
+        <h2>Nível <b id="g-nivel">--</b></h2>
+        <div class="g-barra" id="g-xp-barra"><i id="g-xp"></i></div>
+        <p><span id="g-xp-t">sem dados</span><span id="g-titulo"></span></p>
+      </div>
+      <div class="g-painel g-oficios">
+        <h2>Ofícios do dia <b id="g-of-n">--</b></h2>
+        <div class="g-pips" id="g-pips"></div>
+        <p id="g-of-t">sem dados</p>
+      </div>
+      <div class="g-painel g-elemento">
+        <h2>Elemento <b id="g-el-nome">--</b></h2>
+        <div class="g-gema" id="g-gema"></div>
+        <p id="g-motivo"></p>
+      </div>
+    </div>
+    <p class="g-atualizado" id="g-atualizado"></p>
+  </div>
+</section>
 </body>
 </html>

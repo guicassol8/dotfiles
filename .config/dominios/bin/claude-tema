@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Tema do Claude Code seguindo o dominio e o elemento ativos.
+
+  claude-tema              regenera ~/.claude/themes/dominios.json (so se o tema ativo for custom:dominios)
+  claude-tema --instalar   faz backup, liga tema e linha de status no settings.json e gera o tema
+  claude-tema --desfazer   devolve tema e statusLine do backup e remove o tema gerado
+
+Teste sem mexer no real: CLAUDE_TEMA_DOMINIO, CLAUDE_TEMA_ELEMENTO, CLAUDE_TEMA_SAIDA (arquivo de saida).
+"""
+import json, os, sys, tempfile
+
+HOME = os.path.expanduser("~")
+RAIZ = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+ESTADO = os.path.join(HOME, ".local/state/dominios")
+SETTINGS = os.path.join(HOME, ".claude/settings.json")
+TEMA = os.path.join(HOME, ".claude/themes/dominios.json")
+BACKUP_DIR = os.path.join(HOME, ".rice-backup/2026-11-12")
+BACKUP = os.path.join(BACKUP_DIR, "claude-settings.json.antes")
+NOTAS = os.path.join(BACKUP_DIR, "claude-notas.json")
+STATUS = os.path.join(RAIZ, "bin/claude-status")
+ANTIGO = os.path.join(RAIZ, "claude-statusline-antigo")
+
+
+def ler(caminho, padrao=None):
+    try:
+        with open(caminho) as f:
+            return json.load(f)
+    except Exception:
+        return padrao
+
+
+def gravar(caminho, dados, texto=False):
+    os.makedirs(os.path.dirname(caminho), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(caminho), prefix=".tmp-")
+    with os.fdopen(fd, "w") as f:
+        if texto:
+            f.write(dados)
+        else:
+            json.dump(dados, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+    try:
+        os.chmod(tmp, os.stat(caminho).st_mode & 0o777)
+    except OSError:
+        os.chmod(tmp, 0o644)
+    os.replace(tmp, caminho)
+
+
+def rgb(h):
+    h = h.lstrip("#")
+    return [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+
+
+def mistura(a, b, t):
+    """t=0 devolve a, t=1 devolve b."""
+    x, y = rgb(a), rgb(b)
+    return "#%02x%02x%02x" % tuple(round(p + (q - p) * t) for p, q in zip(x, y))
+
+
+def dominio_ativo():
+    d = os.environ.get("CLAUDE_TEMA_DOMINIO")
+    if d:
+        return d
+    try:
+        return os.path.basename(os.readlink(os.path.join(RAIZ, "atual")))
+    except OSError:
+        return ""
+
+
+def elemento_ativo():
+    e = os.environ.get("CLAUDE_TEMA_ELEMENTO")
+    return e or (ler(os.path.join(ESTADO, "elemento.json"), {}) or {}).get("elemento", "")
+
+
+def montar(dominio, elemento):
+    tema = ler(os.path.join(RAIZ, "_build", dominio, "hud-tema.json"))
+    if not tema or dominio == "neutro":
+        return {}
+    c = tema["cor"]
+    fundo, texto, suave = c["fundo"], c["texto"], c["texto_suave"]
+    if dominio == "grimorio":
+        destaque = tema.get("elementos", {}).get(elemento) or c["primaria"]
+        erro, ok, aviso = c["erro"], "#8FCB7E", c["terciaria"]
+    else:
+        destaque = c["primaria"]
+        erro, ok, aviso = c["erro"], c["ok"], c["aviso"]
+    claro = mistura(destaque, "#ffffff", 0.35)
+    escuro = mistura(destaque, fundo, 0.45)
+    return {
+        "claude": destaque, "claudeShimmer": claro,
+        "permission": destaque, "permissionShimmer": claro,
+        "promptBorder": escuro, "promptBorderShimmer": destaque,
+        "suggestion": claro, "planMode": claro, "remember": destaque,
+        "briefLabelYou": claro, "briefLabelClaude": destaque,
+        "rate_limit_fill": destaque, "rate_limit_empty": c["contorno"],
+        "selectionBg": mistura(destaque, fundo, 0.65),
+        "text": texto, "inactive": suave, "subtle": c["contorno"],
+        "error": erro, "success": ok,
+        "warning": aviso, "warningShimmer": mistura(aviso, "#ffffff", 0.3),
+        "userMessageBackground": c["superficie"],
+        "userMessageBackgroundHover": c["superficie2"],
+        "composerSidebarBackground": c["superficie"],
+    }
+
+
+def gerar():
+    saida = os.environ.get("CLAUDE_TEMA_SAIDA")
+    if not saida:
+        if (ler(SETTINGS, {}) or {}).get("theme") != "custom:dominios":
+            return
+        saida = TEMA
+    dominio, elemento = dominio_ativo(), elemento_ativo()
+    gravar(saida, {"name": "Domínios", "base": "dark", "overrides": montar(dominio, elemento)})
+
+
+def instalar():
+    atual = ler(SETTINGS)
+    if not isinstance(atual, dict):
+        sys.exit("settings.json ilegivel; nada feito")
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    if not os.path.exists(BACKUP):
+        with open(SETTINGS) as f:
+            gravar(BACKUP, f.read(), texto=True)
+        gravar(NOTAS, {"theme_antes": atual.get("theme"), "statusLine_antes": atual.get("statusLine"),
+                       "nota": "tema so existia em settings.json; ~/.claude.json nao tem chave theme"})
+    antigo = atual.get("statusLine")
+    if isinstance(antigo, dict) and antigo.get("command") and STATUS not in antigo["command"]:
+        gravar(ANTIGO, antigo["command"] + "\n", texto=True)
+    atual["theme"] = "custom:dominios"
+    atual["statusLine"] = {"type": "command", "command": STATUS, "padding": 1, "refreshInterval": 30}
+    json.loads(json.dumps(atual))
+    gravar(SETTINGS, atual)
+    gravar(TEMA, {"name": "Domínios", "base": "dark", "overrides": montar(dominio_ativo(), elemento_ativo())})
+
+
+def desfazer():
+    antes = ler(BACKUP)
+    if not isinstance(antes, dict):
+        sys.exit("sem backup em " + BACKUP)
+    atual = ler(SETTINGS, {})
+    for chave in ("theme", "statusLine"):
+        if chave in antes:
+            atual[chave] = antes[chave]
+        else:
+            atual.pop(chave, None)
+    gravar(SETTINGS, atual)
+    for f in (TEMA, ANTIGO):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+
+if __name__ == "__main__":
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        if arg == "--instalar":
+            instalar()
+        elif arg == "--desfazer":
+            desfazer()
+        else:
+            gerar()
+    except SystemExit:
+        raise
+    except Exception as e:
+        print("claude-tema:", e, file=sys.stderr)
+        sys.exit(0 if not arg else 1)

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Tema do Claude Code: acompanha o elemento ativo ($1 = elemento novo).
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+CLAUDE_TEMA_ELEMENTO="$1" exec "$raiz/bin/claude-tema" >/dev/null 2>&1
