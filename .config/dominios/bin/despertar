@@ -1,0 +1,445 @@
+#!/usr/bin/env python3
+"""despertar: o vigia da revelacao da manha. Roda uma vez e termina.
+
+  despertar [--brilho N] [--minimo N]     arma e vigia (use pelo systemd-run, ver abaixo)
+  despertar --estado                      mostra o estado (nao mexe em nada)
+  despertar --agora [--brilho N]          dispara a sequencia ja (teste visual)
+  despertar --simular                     decide com relogio e contadores fingidos (so imprime)
+
+Armar (sobrevive ao fim da sessao de quem chamou):
+  systemd-run --user --unit dominios-despertar --collect \\
+      ~/.config/dominios/bin/despertar --brilho 65535
+Desarmar:  systemctl --user stop dominios-despertar
+
+O vigia so olha os contadores de interrupcao de teclado (i8042) e touchpad (ELAN) em
+/proc/interrupts, a cada 2 s: nunca le o que se digita. Revela quando, depois das 05:30,
+chega um toque com pelo menos 90 min de silencio antes. Toque de madrugada (ou depois de
+pouco silencio) so acende a tela; 10 min sem toque e ela volta ao brilho minimo, armado.
+Passou das 14:00 sem revelar: restaura brilho, libera o som e sai. Nunca revela no dominio
+`neutro` nem sem o HUD rodando (so restaura brilho e som). Instancia unica (flock).
+
+Revelar = restaurar brilho; esperar destravar; foco num workspace vazio do eDP-1; remover
+$XDG_RUNTIME_DIR/dominios-silencio; `hud abertura`; desligar a cafeina; registrar.
+
+Ambiente de teste: SOM_EVENTOS_TOCADOR=<arquivo> (o som vira registro; o silencio NAO e
+removido, para o nucleo seguir mudo). Simulacao: DESPERTAR_SIM_ARMA="AAAA-MM-DD HH:MM",
+DESPERTAR_SIM_TOQUES="AAAA-MM-DD HH:MM[..HH:MM];..." (intervalo = toque continuo),
+DESPERTAR_SIM_TRAVA="AAAA-MM-DD HH:MM..HH:MM" (sessao travada), DESPERTAR_SIM_DOMINIO,
+DESPERTAR_SIM_HUD=0|1.
+"""
+import fcntl
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
+
+CASA = Path.home()
+RT = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
+ESTADO = CASA / ".local/state/dominios"
+REGISTRO = ESTADO / "despertar.log"
+SILENCIO = RT / "dominios-silencio"
+BRILHO_ANTES = RT / "dominios-brilho-antes"
+HUD = CASA / ".config/dominios/hud/hud"
+TELA = "eDP-1"
+
+HORA_ACORDAR = (5, 30)
+HORA_LIMITE = (14, 0)
+OCIOSO_MIN = 90 * 60       # silencio exigido antes do toque
+DIM_APOS = 10 * 60         # sem toque: volta ao brilho minimo
+PASSO = 2
+ESPERA_ABERTURA = 4.5      # a abertura dura uns 3 s; as falas entram depois
+NOMES_ELEMENTO = {"fogo": "o Fogo", "agua": "a Água", "terra": "a Terra", "vento": "o Vento",
+                  "eletricidade": "a Eletricidade", "mana-pura": "a Mana Pura"}
+
+
+def fmt(t):
+    return datetime.fromtimestamp(t).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def parse(s):
+    s = s.strip()
+    for f in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(s, f).timestamp()
+        except ValueError:
+            pass
+    sys.exit(f"despertar: data invalida: {s!r}")
+
+
+def a_partir(t, hm):
+    """Proximo instante com a hora local hm que nao e anterior a t."""
+    d = datetime.fromtimestamp(t).replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
+    if d.timestamp() < t:
+        d += timedelta(days=1)
+    return d.timestamp()
+
+
+def janela(arma):
+    """(alvo, limite): a partir de quando pode revelar e quando desiste."""
+    d = datetime.fromtimestamp(arma)
+    tod = (d.hour, d.minute)
+    if HORA_ACORDAR <= tod < HORA_LIMITE:
+        alvo = arma
+    else:
+        alvo = a_partir(arma, HORA_ACORDAR)
+    return alvo, a_partir(alvo, HORA_LIMITE)
+
+
+def roda(cmd, **kw):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20, **kw)
+        return r.stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+# ------------------------------------------------------------------ mundo real e simulado
+class Real:
+    sim = False
+
+    def __init__(self):
+        self.tocador = os.environ.get("SOM_EVENTOS_TOCADOR")
+
+    def agora(self):
+        return time.time()
+
+    def dorme(self, s):
+        time.sleep(s)
+
+    def contador(self):
+        total = 0
+        try:
+            for linha in open("/proc/interrupts"):
+                if "i8042" in linha or "ELAN" in linha:
+                    total += sum(int(x) for x in re.findall(r"(?<=\s)\d+(?=\s)", linha.split(":", 1)[1] + " ")[:64])
+        except OSError:
+            pass
+        return total
+
+    def travado(self):
+        sid = os.environ.get("XDG_SESSION_ID")
+        if roda(["loginctl", "show-session", sid or "auto", "-p", "LockedHint", "--value"]).strip() == "yes":
+            return True
+        try:
+            return bool(json.loads(roda(["noctalia", "msg", "status"])).get("locked"))
+        except ValueError:
+            return False
+
+    def dominio(self):
+        try:
+            return (ESTADO / "atual").read_text().strip()
+        except OSError:
+            return ""
+
+    def hud_vivo(self):
+        return subprocess.run(["systemctl", "--user", "is-active", "--quiet", "dominios-hud.service"]).returncode == 0
+
+    def faz(self, descricao, cmd=None, fn=None):
+        if fn:
+            return fn()
+        return roda(cmd)
+
+
+class Simulado(Real):
+    sim = True
+
+    def __init__(self):
+        self.tocador = None
+        self.t = parse(os.environ["DESPERTAR_SIM_ARMA"])
+        self.toques = []
+        for item in filter(None, (x.strip() for x in os.environ.get("DESPERTAR_SIM_TOQUES", "").split(";"))):
+            a, _, b = item.partition("..")
+            ini = parse(a)
+            fim = parse(a.split(" ")[0] + " " + b) if b else ini
+            self.toques.append((ini, fim))
+        self.trava = None
+        if os.environ.get("DESPERTAR_SIM_TRAVA"):
+            a, _, b = os.environ["DESPERTAR_SIM_TRAVA"].partition("..")
+            self.trava = (parse(a), parse(a.split(" ")[0] + " " + b))
+        self.dom = os.environ.get("DESPERTAR_SIM_DOMINIO", "grimorio")
+        self.hud = os.environ.get("DESPERTAR_SIM_HUD", "1") != "0"
+        self.n = 0
+        self.visto = [False] * len(self.toques)
+
+    def agora(self):
+        return self.t
+
+    def dorme(self, s):
+        self.t += s
+
+    def contador(self):
+        # cada toque soma 1 no primeiro passo em que o instante (ou intervalo) o alcanca
+        for i, (ini, fim) in enumerate(self.toques):
+            if ini <= self.t <= fim + PASSO and (fim > ini or not self.visto[i]):
+                self.visto[i] = True
+                self.n += 1
+                break
+        return self.n
+
+    def travado(self):
+        return bool(self.trava and self.trava[0] <= self.t < self.trava[1])
+
+    def dominio(self):
+        return self.dom
+
+    def hud_vivo(self):
+        return self.hud
+
+    def faz(self, descricao, cmd=None, fn=None):
+        print(f"    [{fmt(self.t)[11:16]}] ACAO: {descricao}")
+        return ""
+
+
+# ------------------------------------------------------------------ acoes
+class Vigia:
+    def __init__(self, m, brilho, minimo):
+        self.m = m
+        self.brilho = brilho
+        self.minimo = minimo
+
+    def log(self, msg):
+        if self.m.sim:
+            print(f"  [{fmt(self.m.agora())[11:16]}] {msg}")
+            return
+        try:
+            REGISTRO.parent.mkdir(parents=True, exist_ok=True)
+            with open(REGISTRO, "a") as f:
+                f.write(f"{fmt(self.m.agora())} {msg}\n")
+        except OSError:
+            pass
+
+    def set_brilho(self, v):
+        self.m.faz(f"brightnessctl set {v}", ["brightnessctl", "-q", "set", str(v)])
+
+    def libera_som(self):
+        if self.m.tocador:       # teste: o nucleo segue mudo, o som vira registro
+            return False
+        self.m.faz("remover dominios-silencio", fn=lambda: SILENCIO.unlink(missing_ok=True))
+        return True
+
+    def espera_destravar(self, limite):
+        avisou = False
+        while self.m.travado():
+            if not avisou:
+                self.log("sessao travada: esperando destravar")
+                avisou = True
+            if self.m.agora() >= limite:
+                return False
+            self.m.dorme(PASSO)
+        if avisou:
+            self.log("sessao destravada")
+        return True
+
+    def foco_vazio(self):
+        if self.m.sim:
+            self.m.faz("garantir foco num workspace vazio do eDP-1")
+            return True
+        for _ in range(2):
+            try:
+                ws = [w for w in json.loads(roda(["niri", "msg", "--json", "workspaces"])) if w.get("output") == TELA]
+                jan = json.loads(roda(["niri", "msg", "--json", "windows"]))
+            except ValueError:
+                return False
+            cheios = {j.get("workspace_id") for j in jan}
+            foco = next((w for w in ws if w.get("is_focused")), None)
+            if foco and foco["id"] not in cheios:
+                return True
+            vazios = sorted((w for w in ws if w["id"] not in cheios), key=lambda w: w["idx"])
+            if not vazios:
+                return False
+            # so pede um workspace que nao e o do foco (o niri volta ao anterior no contrario)
+            roda(["niri", "msg", "action", "focus-workspace", str(vazios[0]["idx"])])
+            time.sleep(0.6)
+        return False
+
+    def espera_mesa(self):
+        if self.m.sim:
+            return
+        for _ in range(10):
+            try:
+                if json.loads(roda([str(HUD), "estado"]).splitlines()[0]).get("mesa_livre"):
+                    return
+            except (ValueError, IndexError):
+                pass
+            time.sleep(0.5)
+
+    def cafeina_ligada(self):
+        return "Caffeine" in roda(["systemd-inhibit", "--list", "--no-pager"])
+
+    def revela(self, limite):
+        """Sequencia completa. Devolve True se fez a abertura."""
+        self.set_brilho(self.brilho)
+        if not self.espera_destravar(limite):
+            self.log("passou do limite com a sessao travada: libera o som e sai")
+            self.libera_som()
+            return False
+        dom = self.m.dominio()
+        if dom == "neutro" or not self.m.hud_vivo():
+            self.log(f"sem abertura (dominio={dom or '?'}, hud={'on' if self.m.hud_vivo() else 'off'}): so brilho e som")
+            self.libera_som()
+            return False
+        ok = self.foco_vazio()
+        self.log("foco no workspace vazio" if ok else "AVISO: nao achei workspace vazio; abertura segue assim mesmo")
+        self.espera_mesa()
+        som_real = self.libera_som()
+        if self.m.tocador:
+            self.m.faz("registrar som login", fn=lambda: open(self.m.tocador, "a").write(f"{time.time():.3f} login 0.35\n"))
+        self.m.faz("hud abertura", [str(HUD), "abertura"])
+        cafe = True if self.m.sim else self.cafeina_ligada()
+        # sempre: a deteccao pelo inibidor falha as vezes e o comando e idempotente
+        self.m.faz("noctalia msg caffeine-disable", ["noctalia", "msg", "caffeine-disable"])
+        self.log(f"abertura disparada (cafeina estava {'ligada' if cafe else 'desligada'}, som {'liberado' if som_real else 'em registro'})")
+        try:
+            self.boas_vindas()
+        except Exception as ex:
+            self.log(f"falas puladas: {ex}")
+        return True
+
+    def falas(self):
+        """Ate 5 falas de boas-vindas, lidas de arquivos de estado (cada uma pode faltar)."""
+        def le(nome):
+            try:
+                return json.loads((ESTADO / nome).read_text())
+            except (OSError, ValueError):
+                return {}
+        fs = [("Grimório", "O grimório foi reescrito enquanto você dormia, conjurador.")]
+        j = le("jogador.json")
+        if j.get("nivel"):
+            t = str(j.get("titulo") or "").strip()
+            fs.append(("Ficha", f"Você é nível {j['nivel']}" + (f", {t}." if t else ".")))
+        e = le("elemento.json")
+        if e.get("elemento"):
+            nome = NOMES_ELEMENTO.get(e["elemento"], e["elemento"])
+            fs.append(("Capítulo", f"O elemento do momento é {nome}. " + str(e.get("motivo") or "").strip()))
+        hoje = le("missoes.json").get("dias", {}).get(datetime.fromtimestamp(self.m.agora()).strftime("%Y-%m-%d"))
+        if hoje:
+            n = len(set(hoje.get("agendadas", [])) - set(hoje.get("feitas", [])))
+            if n:
+                fs.append(("Ofícios", "Um ofício do dia espera por você." if n == 1 else f"{n} ofícios do dia esperam por você."))
+        fs.append(("Dica", "Mod+G abre o grimório por cima das janelas. Clique num ofício para marcá-lo."))
+        return [(t, x.strip()) for t, x in fs][:5]
+
+    def boas_vindas(self):
+        """Depois que a abertura some, manda as falas para a fila da caixa de dialogo
+        (ela cuida do tempo de leitura de cada uma). Falhou: segue sem falas."""
+        self.m.dorme(ESPERA_ABERTURA) if self.m.sim else time.sleep(ESPERA_ABERTURA)
+        n = 0
+        for t, x in self.falas():
+            if self.m.sim:
+                self.m.faz(f"hud dizer {t!r} {x!r}")
+                n += 1
+                continue
+            r = subprocess.run([str(HUD), "dizer", t, x], capture_output=True, timeout=20)
+            if r.returncode != 0:
+                self.log("hud dizer falhou: sigo sem as falas")
+                return
+            n += 1
+            time.sleep(0.3)
+        self.log(f"{n} falas de boas-vindas enviadas")
+
+    def vigia(self):
+        m = self.m
+        arma = m.agora()
+        alvo, limite = janela(arma)
+        self.log(f"armado: revela a partir de {fmt(alvo)}, limite {fmt(limite)}, brilho a restaurar {self.brilho}, minimo {self.minimo}")
+        ultimo = m.contador()
+        ativ = arma
+        aceso = False
+        while True:
+            m.dorme(PASSO)
+            agora = m.agora()
+            if agora >= limite:
+                self.log("14:00 sem toque que revele: restaura brilho, libera o som e sai")
+                self.set_brilho(self.brilho)
+                self.libera_som()
+                return
+            c = m.contador()
+            if c != ultimo:
+                ultimo = c
+                parado = agora - ativ
+                ativ = agora
+                if agora >= alvo and parado >= OCIOSO_MIN:
+                    self.log(f"toque as {fmt(agora)[11:16]} apos {int(parado // 60)} min parado: revela")
+                    self.revela(limite)
+                    return
+                motivo = "antes das 05:30" if agora < alvo else f"so {int(parado // 60)} min parado"
+                self.log(f"toque as {fmt(agora)[11:16]} ({motivo}): nao revela" + ("" if aceso else ", restaura o brilho"))
+                if not aceso:
+                    self.set_brilho(self.brilho)
+                    aceso = True
+            elif aceso and agora - ativ >= DIM_APOS:
+                self.log("10 min sem toque: volta ao brilho minimo, segue armado")
+                self.set_brilho(self.minimo)
+                aceso = False
+
+
+def estado(m):
+    armado = False
+    try:
+        f = open(RT / "dominios-despertar.lock", "a")
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        armado = True
+    d = {
+        "armado": armado,
+        "unidade": roda(["systemctl", "--user", "is-active", "dominios-despertar.service"]).strip() or "inativa",
+        "agora": fmt(m.agora()), "brilho": roda(["brightnessctl", "-m"]).strip(),
+        "brilho_antes": BRILHO_ANTES.read_text().strip() if BRILHO_ANTES.exists() else None,
+        "silencio": SILENCIO.exists(), "cafeina": Vigia(m, 0, 0).cafeina_ligada(),
+        "dominio": m.dominio(), "hud": m.hud_vivo(), "travada": m.travado(),
+        "contador": m.contador(), "janela": [fmt(x) for x in janela(m.agora())],
+    }
+    print(json.dumps(d, indent=1, ensure_ascii=False))
+
+
+def valor(args, nome):
+    if nome in args:
+        try:
+            return args[args.index(nome) + 1]
+        except IndexError:
+            sys.exit(f"{nome} precisa de um valor")
+    return None
+
+
+def main(args):
+    if "-h" in args or "--help" in args:
+        print(__doc__)
+        return
+    if "--simular" in args:
+        if "DESPERTAR_SIM_ARMA" not in os.environ:
+            sys.exit("--simular precisa de DESPERTAR_SIM_ARMA (veja --help)")
+        m = Simulado()
+    else:
+        m = Real()
+    if "--estado" in args:
+        return estado(m)
+    brilho = valor(args, "--brilho")
+    if brilho is None:
+        try:
+            brilho = BRILHO_ANTES.read_text().strip()
+        except OSError:
+            sys.exit("despertar: passe --brilho N ou deixe dominios-brilho-antes")
+    minimo = valor(args, "--minimo") or ("4%" if m.sim else roda(["brightnessctl", "get"]).strip() or "4%")
+    if not m.sim:
+        trava = open(RT / "dominios-despertar.lock", "a")
+        try:
+            fcntl.flock(trava, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            sys.exit("despertar: ja ha um vigia armado")
+    v = Vigia(m, brilho, minimo)
+    if "--agora" in args:
+        v.log("--agora: sequencia imediata (teste)")
+        v.revela(m.agora() + 120)
+        return
+    v.vigia()
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv[1:])
+    except KeyboardInterrupt:
+        pass

@@ -144,6 +144,15 @@ erro = "#E8866E"           # elemento fogo
 sobre_erro = "#3A211B"
 aviso = "#FFD43B"          # elemento eletricidade
 ok = "#74C5B0"             # elemento vento
+moldura = "#3A3348"        # molduras do terminal (segue o elemento ativo no gerar/terminal_elemento.py)
+
+# Elemento padrao do terminal quando nao ha estado (mana pura)
+[grimorio.elemento]
+cor = "#B4A5DD"
+rgb = "180, 165, 221"
+nome = "Mana Pura"
+glifo = "✦"
+inicial = "M"
 
 [grimorio.ansi]
 preto = "#1F1A28"
@@ -184,6 +193,14 @@ borda = 1
 vaos = 16
 opacidade_terminal = 0.94
 barra = "topo"
+
+# Contemplacao: depois de `minutos` sem mexer no notebook, o HUD mostra so o cenario vivo
+# em tela cheia (protetor de tela); qualquer tecla ou mouse desfaz. So na tomada e com a
+# memoria folgada; video ou chamada segurando a tela acordada impede. Quem conta o tempo e
+# o ocioso do Noctalia. Depois de mudar: `dominio construir grimorio`.
+[grimorio.contemplacao]
+ligada = true
+minutos = 3
 
 # -------------------------------------------------------------- SETOR 2814
 # Tropa dos Lanternas Verdes. As cores ANSI sao o espectro emocional:

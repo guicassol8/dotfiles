@@ -18,3 +18,71 @@ shell/modo-seguro
 
 # Pessoal: tua rotina diaria. Fica so na maquina; apaga esta linha se quiser publicar.
 missoes.toml
+
+# ---------------------------------------------------------------- Grimorio (HUD)
+# Python
+*.pyc
+
+# Shader compilado: refaz com hud/papel/compilar
+hud/papel/*.qsb
+hud/papel/dev/*.qsb
+
+# Nova aba do Chrome: estado do momento (ofícios, ficha) e a cena do elemento, refeitos a cada troca
+chrome-nova-aba/estado.json
+chrome-nova-aba/cena.png
+
+# Regras dos agentes: citam nome, idade, cidade e gostos do dono. Só na máquina.
+hud/dev/REGRAS.md
+
+# Pacotes de arte baixados do OpenGameArt (milhares de arquivos, ~50 MB).
+# Cenarios: nada do que esta aqui e usado pelo HUD (as cenas sao arte gerada, ver CREDITOS.md).
+hud/papel/fontes-livres/*
+!hud/papel/fontes-livres/CREDITOS.md
+# Sprites: sobem so os PNGs que hud/sprites/indice.json aponta (CC0), mais LICENCA.txt e CREDITOS.md.
+# Sprite novo no indice.json? Acrescenta a linha ! dele aqui.
+hud/sprites/fontes-livres/**/*
+!hud/sprites/fontes-livres/**/
+!hud/sprites/fontes-livres/CREDITOS.md
+!hud/sprites/fontes-livres/*/LICENCA.txt
+!hud/sprites/fontes-livres/32x32-pixel-art-creatures-volume-3/creatures3_.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/E_Gold01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Clock.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Crystal01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_GoldCoin.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Key03.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Map.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Scroll.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Torch02.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/P_Pink05.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Earth02.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Fire03.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Holy01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Ice02.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Light01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Light02.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Light03.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Magic02.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Thunder01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Thunder03.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Water03.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Water07.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Wind01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Wind02.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/W_Book01.png
+!hud/sprites/fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/W_Sword001.png
+!hud/sprites/fontes-livres/animated-candle/2023-12-13_candle.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/amorphous/ooze_new.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/animals/giant_bat.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/dragons/mottled_dragon.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/nonliving/stone_golem.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/raven.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/curse_skull.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/ghost_new.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/lich.png
+!hud/sprites/fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/skeletons/skeleton_humanoid_small_new.png
+!hud/sprites/fontes-livres/flags-0/flags.png
+!hud/sprites/fontes-livres/mini-fantasy-sprites/mini_fantasy_sprites_oga_ver_alpha.png
+!hud/sprites/fontes-livres/rpg-ui-icons/hourglass.png
+!hud/sprites/fontes-livres/weather-icons/cloudyWeather.png
+!hud/sprites/fontes-livres/weather-icons/rainyWeather.png
+!hud/sprites/fontes-livres/weather-icons/stormyWeather.png

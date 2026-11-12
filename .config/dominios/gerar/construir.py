@@ -173,3 +173,8 @@ if __name__ == "__main__":
         if d not in ORDEM:
             sys.exit(f"dominio desconhecido: {d} (existem: {', '.join(ORDEM)})")
         print(f"{d}: {constroi(d)} arquivos em {BUILD / d}")
+        if d == "grimorio":   # paletas do terminal por elemento
+            import terminal_elemento
+            terminal_elemento.gera()
+            import sessao_elemento     # niri e Noctalia por elemento
+            sessao_elemento.gera()
