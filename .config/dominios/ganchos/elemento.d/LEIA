@@ -1,0 +1,7 @@
+Ganchos do elemento. A cada troca de elemento (e a cada travar ou soltar, mesmo sem troca),
+o `elemento` roda, depois de gravar o elemento.json, cada executavel desta pasta
+(em ordem alfabetica, em segundo plano, limite de 10 s) com dois argumentos:
+  $1 = elemento novo   (fogo, agua, terra, vento, eletricidade, mana-pura)
+  $2 = elemento anterior (vazio na primeira vez)
+As variaveis ELEMENTO e ELEMENTO_ANTERIOR tambem estao no ambiente.
+Arquivos sem permissao de execucao (como este) sao ignorados.
