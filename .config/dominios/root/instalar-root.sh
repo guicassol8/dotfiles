@@ -292,11 +292,15 @@ dominio_ativo() {
 # Grava o sddm.conf como o teu usuário, com arquivo temporário e mv: root nunca
 # escreve dentro de uma pasta que é tua.
 grava_dominio() {
+    # além do domínio vai a ficha do jogador (jogador_nome, jogador_linha, jogador_xp),
+    # que o Grimório mostra como "arquivo de jogo salvo"; o gancho 50-login a mantém em dia
     # shellcheck disable=SC2016
-    runuser -u "$USUARIO" -- sh -c '
+    runuser -u "$USUARIO" -- env HOME="$CASA" sh -c '
         tmp="$1/.sddm.conf.$$"
-        printf "[General]\ndominio=%s\n" "$2" > "$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$1/sddm.conf"
-    ' sh "$DADOS" "$1"
+        { printf "[General]\ndominio=%s\n" "$2"
+          python3 "$3/gerar/login.py" jogador 2>/dev/null | LC_ALL=C grep -E "^jogador_(nome|linha|xp)=[^[:cntrl:]]*$" || true
+        } > "$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$1/sddm.conf"
+    ' sh "$DADOS" "$1" "$RAIZ"
 }
 
 secao_sddm() {
@@ -305,7 +309,8 @@ secao_sddm() {
     diz "O que esta parte faz:"
     diz "  - regenera o tema com as cores atuais do dominios.toml (como $USUARIO, sem root);"
     diz "  - copia o tema para $SDDM_DESTINO;"
-    diz "  - cria $DADOS (teu, 0755) com sddm.conf dizendo qual é o domínio ativo;"
+    diz "  - cria $DADOS (teu, 0755) com sddm.conf dizendo qual é o domínio ativo e a ficha do"
+    diz "    jogador (nome, nível, classe, título), que o Grimório mostra como arquivo de jogo salvo;"
     diz "  - liga $SDDM_DESTINO/theme.conf.user a esse arquivo,"
     diz "    assim a tela de login acompanha o comando dominio;"
     diz "  - escreve $SDDM_CONF escolhendo o tema."
@@ -501,7 +506,7 @@ secao_plymouth() {
     diz "  - RECONSTRÓI O INITRAMFS dos kernels instalados (mkinitcpio -P), porque o Plymouth"
     diz "    vai dentro dele. Leva um minuto ou dois. Depois confere se o tema entrou inteiro;"
     diz "    se algo faltar, volta sozinho para o tema anterior e reconstrói de novo."
-    diz "A cada boot aparece o emblema de um dos domínios, sorteado."
+    diz "A cada boot aparece o emblema de um dos domínios, sorteado (o do Grimório é o livro em pixel art)."
     diz "Não mexo nas entradas do bootloader nem na linha de comando do kernel."
     diz "Se um dia o boot parar na animação: no menu do systemd-boot aperta 'e', apaga a"
     diz "palavra 'splash' da linha e dá Enter. Depois roda este script com --desfazer."

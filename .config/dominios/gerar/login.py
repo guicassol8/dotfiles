@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Gera o tema de login (SDDM) e o de boot (Plymouth) a partir de dominios.toml.
 
-Uso: login.py [sddm] [plymouth]        (sem argumento: os dois)
+Uso: login.py [sddm] [plymouth] [jogador]   (sem argumento: sddm e plymouth;
+     "jogador" so imprime jogador_nome/linha/xp, para o gancho 50-login)
 
 SDDM, em root/sddm/dominios/ (um tema so com os dominios todos):
   dominios.js            tokens dos dominios para o QML (cor, fonte, forma, texto, estilo)
@@ -63,6 +64,8 @@ PASTAS_FONTES = [Path.home() / ".local/share/fonts/dominios",
 #   veu              quanto escurecer o papel (0 a 1)
 #   grao             opacidade do grao fino por cima do papel (0 desliga); ele esconde
 #                    as faixas que um degrade escuro mostra em tela de 8 bits
+#   pixel            True liga a tela de titulo em pixel art (so o grimorio usa); entao valem
+#                    fundo_papel (nome em papeis/, sem .png) e os blocos FONTES_PIXEL e PECAS_PIXEL
 ESTILO_PADRAO = {
     "painel_x": 0.5, "painel_dy": 30, "painel_largura": 460, "painel_alfa": 0.86,
     "alinhamento": "centro", "moldura": "nenhuma",
@@ -83,14 +86,16 @@ ESTILO = {
         "rotulos_espaco": 0.22, "texto_tamanho": 22,
         "relogio": "esquerda", "relogio_tamanho": 86, "data_caixa": "alta", "data_espaco": 0.16,
     },
-    # pagina do grimorio: sigilo ao centro, versalete, filete duplo fino
+    # tela de titulo do grimorio (HD-2D): arte de titulo ao fundo, fontes e molduras de pixel,
+    # arquivo de jogo salvo no lugar do campo de usuario (ver componentes/TelaPixel.qml)
     "grimorio": {
+        "pixel": True, "fundo_papel": "grimorio-titulo", "arquivo": "Arquivo salvo",
         "painel_largura": 470, "painel_alfa": 0.90, "moldura": "dupla",
-        "emblema": "topo", "emblema_tamanho": 150,
-        "titulo_caixa": "versalete", "titulo_espaco": 0.12, "titulo_tamanho": 27,
+        "emblema": "nenhum", "emblema_tamanho": 150,
+        "titulo_caixa": "versalete", "titulo_espaco": 0.0, "titulo_tamanho": 43,
         "frase_tamanho": 21, "rotulos_fonte": "destaque", "rotulos_caixa": "versalete",
-        "rotulos_espaco": 0.10, "rotulos_tamanho": 15, "texto_tamanho": 21,
-        "relogio": "centro", "relogio_tamanho": 78, "veu": 0.72,
+        "rotulos_espaco": 0.0, "rotulos_tamanho": 23,   # px de tela; Botao e Seletor somam 1: 24 = Silkscreen 8x3 "texto_tamanho": 21,
+        "relogio": "centro", "relogio_tamanho": 78, "veu": 0.0, "grao": 0.0,
     },
     # Setor 2814: emblema e juramento soltos sobre o espaco, campos em pilula
     "setor2814": {
@@ -113,6 +118,20 @@ ESTILO = {
         "veu": 0.35,
     },
 }
+
+# Tela de titulo em pixel: fontes (papel -> familia) e pecas do HUD (hud/arte, hud/sprites)
+# que o tema leva junto. So entram no tema dos dominios com estilo "pixel".
+FONTES_PIXEL = {"gotico": "Jacquard 24", "gotico_pequeno": "Jacquard 12", "relogio": "Jersey 25", "nome": "Jersey 10",
+                "rotulo": "Silkscreen", "miudo": "Micro 5"}
+PECAS_PIXEL = {"moldura": "hud/arte/moldura-normal.png", "placa": "hud/arte/placa-normal.png",
+               "sombra": "hud/arte/sombra.png", "retrato": "hud/arte/retrato-moldura.png",
+               "gema": "hud/arte/gema-mana-pura.png", "conjurador": "hud/sprites/conjurador-32.png",
+               "seta": "hud/arte/seta-direita.png"}
+# Boot em pixel: o grimorio da arte de titulo (cena nativa de 640x360), recortado e sem as orbes.
+# caixa: x0,y0,x1,y1 em pixels de arte; orbes: (x, y, raio) apagados do recorte.
+EMBLEMA_PIXEL = {"cena": "hud/papel/cenas/titulo.png", "caixa": (251, 119, 391, 259), "ampliar": 3,
+                 "orbes": [(268, 107, 17), (372, 107, 17), (268, 266, 19), (372, 266, 19)]}
+JOGADOR = Path.home() / ".local/state/dominios/jogador.json"
 
 # Textos fixos da tela de login (os de cada dominio vem de dominios.toml).
 TEXTOS = {
@@ -236,6 +255,17 @@ def fonte_pil(familia, peso, tamanho, texto=""):
     return f
 
 
+def jogador():
+    """Ficha do jogador para o arquivo salvo: nome, linha 'Nv 35 · Invocador · Titulo' e xp (0 a 1)."""
+    try:
+        j = json.loads(JOGADOR.read_text())
+        linha = " · ".join([f"Nv {int(j['nivel'])}", str(j["classe"]), str(j["titulo"])])
+        xp = max(0.0, min(1.0, float(j["xp"]) / float(j["xp_proximo"])))
+        return {"nome": str(j["nome"]).strip(), "linha": linha, "xp": round(xp, 3)}
+    except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError):
+        return {"nome": "", "linha": "", "xp": 0.0}
+
+
 def nome_limpo(arq):
     return re.sub(r"[^A-Za-z0-9._-]", "", Path(arq).name)
 
@@ -305,7 +335,7 @@ def selo(texto, cor_hex, lado):
 
 
 def fundo_jpeg(dominio, destino):
-    origem = PAPEIS / f"{dominio}-desfocado.png"
+    origem = PAPEIS / f"{estilo_de(dominio).get('fundo_papel', dominio + '-desfocado')}.png"
     if origem.exists():
         im = Image.open(origem).convert("RGB")
     else:
@@ -389,6 +419,18 @@ def gera_sddm():
                 fonte["arquivos"][papel] = ""
                 fonte[f"peso_{papel}"] = peso
                 fonte["eixos"][papel] = {}
+        if e.get("pixel"):
+            fonte["pixel"] = {}
+            for papel, familia in FONTES_PIXEL.items():
+                achada = escolhe_fonte(familia, 400)
+                if not achada:
+                    sys.exit(f"fonte de pixel '{familia}' nao encontrada em {', '.join(map(str, PASTAS_FONTES))}")
+                shutil.copyfile(achada[0], fontes / nome_limpo(achada[0]))
+                fonte["pixel"][papel] = {"familia": familia, "arquivo": f"fontes/{nome_limpo(achada[0])}"}
+            pecas = {}
+            for nome, rel in PECAS_PIXEL.items():
+                shutil.copyfile(RAIZ / rel, arte / f"pixel-{nome}.png")
+                pecas[nome] = f"arte/pixel-{nome}.png"
         # Titulo em kanji cai numa fonte japonesa do sistema: pede o peso maximo para acompanhar o destaque.
         fonte["peso_titulo"] = 900 if precisa_cjk(textos_de(dom)["titulo"]) else fonte["peso_destaque"]
         dados[dom] = {
@@ -397,6 +439,9 @@ def gera_sddm():
             "fonte": fonte, "estilo": e,
             "arte": {"fundo": f"arte/{dom}-fundo.jpg", "emblema": f"arte/{dom}-emblema.png"},
         }
+        if e.get("pixel"):
+            dados[dom]["arte"]["pecas"] = pecas
+            dados[dom]["jogador"] = jogador()
     grao().save(arte / "grao.png", optimize=True)
     padrao = "sistema" if "sistema" in ORDEM else ORDEM[0]
     js = [".pragma library", "// GERADO por gerar/login.py a partir de dominios.toml. Nao edite a mao.", ""]
@@ -415,6 +460,85 @@ def gera_sddm():
 
 
 # --------------------------------------------------------------- Plymouth
+def tons_da_cena():
+    """Cor media do alto e da base da cena de titulo: o fundo do splash do dominio em pixel."""
+    import numpy as np
+    a = np.asarray(Image.open(RAIZ / EMBLEMA_PIXEL["cena"]).convert("RGB")).astype(float)
+    topo, base = a[:36].mean((0, 1)), a[-36:].mean((0, 1))
+    return tuple(topo.round().astype(int)), tuple((topo * 0.8 + base * 0.2).round().astype(int))
+
+
+def emblema_cena():
+    """Grimorio em pixel art com alfa: recorte da cena de titulo, orbes apagadas, ampliado por vizinho mais proximo."""
+    import numpy as np
+    cena = Image.open(RAIZ / EMBLEMA_PIXEL["cena"]).convert("RGB")
+    x0, y0, x1, y1 = EMBLEMA_PIXEL["caixa"]
+    a = np.asarray(cena.crop((x0, y0, x1, y1))).astype(float)
+    fundo = np.array(tons_da_cena()[0], dtype=float)
+    # opaco onde a arte se afasta do fundo da cena; o miolo escuro do livro fica opaco por estar longe dele
+    alfa = np.clip((np.abs(a - fundo).max(axis=2) - 6) / 26, 0, 1)
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    def suave(v):                           # degrau suave de 0 a 1
+        v = np.clip(v, 0, 1)
+        return v * v * (3 - 2 * v)
+    for ox, oy, raio in EMBLEMA_PIXEL["orbes"]:
+        alfa *= suave((np.hypot(xx - ox, yy - oy) - raio) / 5)
+    # o brilho do livro se dissolve antes da borda do recorte (distancia de xadrez ao centro)
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    d = np.maximum(np.abs(xx - cx) / ((x1 - x0) / 2), np.abs(yy - cy) / ((y1 - y0) / 2))
+    alfa *= 1 - suave((d - 0.72) / 0.28)
+    saida = np.dstack([a, alfa * 255]).astype(np.uint8)
+    im = Image.fromarray(saida, "RGBA")
+    return im.resize((im.width * EMBLEMA_PIXEL["ampliar"], im.height * EMBLEMA_PIXEL["ampliar"]), Image.NEAREST)
+
+
+def entalhado(larg, alt, g, camadas):
+    """PNG de pixel art: camadas = [(cor, recuo em pixels de arte, entalhar?)...], de fora para dentro."""
+    im = Image.new("RGBA", (larg, alt), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for cor, n, entalhe in camadas:
+        r = n * g
+        if entalhe:
+            d.rectangle((r + g, r, larg - 1 - r - g, alt - 1 - r), fill=cor)
+            d.rectangle((r, r + g, larg - 1 - r, alt - 1 - r - g), fill=cor)
+        else:
+            d.rectangle((r, r, larg - 1 - r, alt - 1 - r), fill=cor)
+    return im
+
+
+def rotulo_pixel(texto, familia, corpo, ampliar, cor_hex, sombra_hex):
+    """Texto de fonte de pixel desenhado sem suavizar no corpo nativo e ampliado por vizinho mais proximo."""
+    arq = escolhe_fonte(familia, 400)[0]
+    fnt = ImageFont.truetype(str(arq), corpo)
+    sobe, desce = fnt.getmetrics()
+    larg = int(ImageDraw.Draw(Image.new("L", (8, 8))).textlength(texto, font=fnt)) + 4
+    im = Image.new("RGBA", (larg, sobe + desce + 3), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.fontmode = "1"
+    d.text((2, 2), texto, font=fnt, fill=rgb(sombra_hex) + (150,))
+    d.text((1, 1), texto, font=fnt, fill=rgb(cor_hex) + (255,))
+    return im.resize((im.width * ampliar, im.height * ampliar), Image.NEAREST)
+
+
+def gera_plymouth_pixel(dom, c, rascunho):
+    """Pecas do splash em pixel art (grade de 3 px): grimorio, titulo gotico, trilho e barra entalhados."""
+    g = 3
+    emblema_cena().save(rascunho / f"{dom}-emblema.png", optimize=True)
+    titulo = textos_de(dom)["titulo"]
+    rotulo_pixel(titulo, FONTES_PIXEL["gotico"], 43, 2, c["texto"], c["primaria"]).save(rascunho / f"{dom}-rotulo.png", optimize=True)
+    preto = rgb(c["fundo"]) + (255,)
+    preto = tuple(int(v * 0.5) for v in preto[:3]) + (255,)
+    # trilho 360x24: contorno escuro, filete, miolo; a barra entra por dentro (deslocamento 2 pixels de arte)
+    entalhado(360, 24, g, [(preto, 0, True), (rgb(c["contorno"]) + (255,), 1, True), (tuple(int(v * 0.7) for v in rgb(c["superficie"])) + (255,), 2, False)]
+              ).save(rascunho / f"{dom}-trilho.png", optimize=True)
+    barra = Image.new("RGBA", (348, 12), rgb(c["primaria"]) + (255,))
+    ImageDraw.Draw(barra).rectangle((0, 0, 347, 2), fill=rgb(c["secundaria"]) + (255,))
+    barra.save(rascunho / f"{dom}-barra.png", optimize=True)
+    entalhado(342, 45, g, [(preto, 0, True), (rgb(c["primaria"]) + (255,), 1, True), (rgb(c["superficie2"]) + (255,), 2, False)]
+              ).save(rascunho / f"{dom}-campo.png", optimize=True)
+    Image.new("RGBA", (12, 12), rgb(c["texto"]) + (255,)).save(rascunho / f"{dom}-ponto.png", optimize=True)
+
+
 def gera_plymouth():
     modelo = MODELO_PLY.read_text()
     if "@@DADOS@@" not in modelo:
@@ -429,18 +553,24 @@ def gera_plymouth():
         d, c, forma = TOKENS[dom], TOKENS[dom]["cor"], TOKENS[dom]["forma"]
         e = estilo_de(dom)
         raio, borda = int(forma["raio"]), int(forma["borda"])
-        emblema(dom, 340).save(rascunho / f"{dom}-emblema.png", optimize=True)
-        titulo = caixa(d.get("rotulo", d["nome"]), "alta")
-        fnt = fonte_pil(d["fonte"]["destaque"], PESO_DESTAQUE, 30, titulo)
-        rotulo_png(titulo, fnt, c["texto"], 30 * min(e["titulo_espaco"], 0.4)).save(rascunho / f"{dom}-rotulo.png", optimize=True)
-        alt = max(3, borda * 2)
-        retangulo(300, alt, raio, rgb(c["contorno"]) + (255,)).save(rascunho / f"{dom}-trilho.png", optimize=True)
-        retangulo(300, alt, raio, rgb(c["primaria"]) + (255,)).save(rascunho / f"{dom}-barra.png", optimize=True)
-        retangulo(340, 46, raio, rgb(c["superficie2"]) + (255,), rgb(c["primaria"]) + (255,), borda).save(
-            rascunho / f"{dom}-campo.png", optimize=True)
-        retangulo(12, 12, raio, rgb(c["texto"]) + (255,)).save(rascunho / f"{dom}-ponto.png", optimize=True)
+        if e.get("pixel"):
+            gera_plymouth_pixel(dom, c, rascunho)
+        else:
+            emblema(dom, 340).save(rascunho / f"{dom}-emblema.png", optimize=True)
+            titulo = caixa(d.get("rotulo", d["nome"]), "alta")
+            fnt = fonte_pil(d["fonte"]["destaque"], PESO_DESTAQUE, 30, titulo)
+            rotulo_png(titulo, fnt, c["texto"], 30 * min(e["titulo_espaco"], 0.4)).save(rascunho / f"{dom}-rotulo.png", optimize=True)
+            alt = max(3, borda * 2)
+            retangulo(300, alt, raio, rgb(c["contorno"]) + (255,)).save(rascunho / f"{dom}-trilho.png", optimize=True)
+            retangulo(300, alt, raio, rgb(c["primaria"]) + (255,)).save(rascunho / f"{dom}-barra.png", optimize=True)
+            retangulo(340, 46, raio, rgb(c["superficie2"]) + (255,), rgb(c["primaria"]) + (255,), borda).save(
+                rascunho / f"{dom}-campo.png", optimize=True)
+            retangulo(12, 12, raio, rgb(c["texto"]) + (255,)).save(rascunho / f"{dom}-ponto.png", optimize=True)
         linhas.append(f'dominios[{i}].chave = "{dom}";')
-        for nome, valor in (("topo", c["fundo"]), ("base", mistura(c["fundo"], c["superficie"], 0.85)),
+        topo, base = (tons_da_cena() if e.get("pixel") else (c["fundo"], mistura(c["fundo"], c["superficie"], 0.85)))
+        linhas.append(f"dominios[{i}].fracao = {0.40 if e.get('pixel') else 0.36};")
+        linhas.append(f"dominios[{i}].barra_dx = {6 if e.get('pixel') else 0}; dominios[{i}].barra_dy = {6 if e.get('pixel') else 0};")
+        for nome, valor in (("topo", topo), ("base", base),
                             ("texto", c["texto"]), ("suave", c["texto_suave"])):
             r, g, b = unidade(valor)
             linhas.append(f"dominios[{i}].{nome}.r = {r}; dominios[{i}].{nome}.g = {g}; dominios[{i}].{nome}.b = {b};")
@@ -458,9 +588,14 @@ def gera_plymouth():
 if __name__ == "__main__":
     alvos = sys.argv[1:] or ["sddm", "plymouth"]
     for alvo in alvos:
-        if alvo == "sddm":
+        if alvo == "jogador":
+            # chaves de theme.conf.user, para o gancho 50-login gravar a cada troca de dominio
+            j = jogador()
+            if j["nome"]:
+                print(f"jogador_nome={j['nome']}\njogador_linha={j['linha']}\njogador_xp={j['xp']}")
+        elif alvo == "sddm":
             gera_sddm()
         elif alvo == "plymouth":
             gera_plymouth()
         else:
-            sys.exit(f"alvo desconhecido: {alvo} (use sddm e/ou plymouth)")
+            sys.exit(f"alvo desconhecido: {alvo} (use sddm, plymouth e/ou jogador)")

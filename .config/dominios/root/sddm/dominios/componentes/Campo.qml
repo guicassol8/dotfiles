@@ -17,7 +17,45 @@ FocusScope {
     implicitHeight: t.px(t.estilo.campo_altura)
     activeFocusOnTab: true
 
+    // moldura de pixel (tela de título do Grimório): contorno, filete de 1 pixel e miolo escuro
+    Item {
+        id: pixel
+
+        readonly property int g: campo.t.px(3)
+
+        visible: campo.t.pixel
+        anchors.fill: parent
+
+        Entalhe {
+            anchors.fill: parent
+            g: pixel.g
+            cor: Qt.darker(campo.t.cor.fundo, 1.7)
+        }
+
+        Entalhe {
+            anchors.fill: parent
+            anchors.margins: pixel.g
+            g: pixel.g
+            cor: campo.erro ? campo.t.cor.erro : entrada.activeFocus ? campo.t.cor.primaria : campo.t.cor.contorno
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 2 * pixel.g
+            color: Qt.darker(campo.t.cor.superficie, 1.35)
+        }
+
+        Rectangle {
+            x: 2 * pixel.g
+            y: 2 * pixel.g
+            width: parent.width - 4 * pixel.g
+            height: pixel.g
+            color: Qt.darker(campo.t.cor.fundo, 1.5)
+        }
+    }
+
     Rectangle {
+        visible: !campo.t.pixel
         anchors.fill: parent
         radius: Math.min(campo.t.raio, height / 2)
         color: Qt.alpha(campo.t.cor.superficie2, 0.88)

@@ -26,6 +26,7 @@ FocusScope {
     property string mensagem: ""
     property bool falhou: false
     property bool ocupado: false
+    property bool semUsuario: false
     property real tremor: 0
     readonly property bool caps: keyboard.capsLock === true
     readonly property var nomesSessoes: {
@@ -44,6 +45,19 @@ FocusScope {
     function caixa(texto, modo) {
         return modo === "alta" ? texto.toUpperCase() : texto
     }
+
+    // Arquivo de jogo salvo (tela de título): o gancho 50-login grava jogador_* em theme.conf.user
+    // a cada troca de domínio; sem eles vale o que o gerador leu de jogador.json.
+    readonly property var jogador: tema.jogador === undefined ? ({ nome: "", linha: "", xp: 0 }) : tema.jogador
+    readonly property string jogadorNome: config.jogador_nome ? String(config.jogador_nome) : jogador.nome
+    readonly property string jogadorLinha: config.jogador_linha ? String(config.jogador_linha) : jogador.linha
+    readonly property real jogadorXp: config.jogador_xp ? Number(config.jogador_xp) : jogador.xp
+
+    // Os campos moram na tela do dominio: a classica (`tela`) ou a de pixel (`telaPixel`).
+    readonly property bool pixel: tokens.pixel
+    readonly property var cUsuario: pixel && cargaPixel.item ? cargaPixel.item.campoUsuario : campoUsuario
+    readonly property var cSenha: pixel && cargaPixel.item ? cargaPixel.item.campoSenha : campoSenha
+    readonly property var cSeletor: pixel && cargaPixel.item ? cargaPixel.item.seletor : seletor
 
     function usuarioInicial() {
         var ultimo = userModel.lastUser
@@ -64,10 +78,10 @@ FocusScope {
     }
 
     function focoPadrao() {
-        if (campoUsuario.texto.length === 0)
-            campoUsuario.forceActiveFocus()
+        if (cUsuario.texto.length === 0)
+            cUsuario.forceActiveFocus()
         else
-            campoSenha.forceActiveFocus()
+            cSenha.forceActiveFocus()
     }
 
     function textoAviso() {
@@ -82,30 +96,30 @@ FocusScope {
     function entrar() {
         if (ocupado)
             return
-        var nome = campoUsuario.texto.trim()
+        var nome = cUsuario.texto.trim()
         if (nome.length === 0) {
             falhou = true
             mensagem = tokens.txt.sem_usuario
-            campoUsuario.forceActiveFocus()
+            cUsuario.forceActiveFocus()
             return
         }
-        if (campoSenha.texto.length === 0 && precisaSenha(nome)) {
+        if (cSenha.texto.length === 0 && precisaSenha(nome)) {
             falhou = false
             mensagem = tokens.txt.sem_senha
-            campoSenha.forceActiveFocus()
+            cSenha.forceActiveFocus()
             return
         }
         falhou = false
         mensagem = tokens.txt.entrando
         ocupado = true
         guarda.restart()
-        sddm.login(nome, campoSenha.texto, seletor.indice)
+        sddm.login(nome, cSenha.texto, cSeletor.indice)
     }
 
     function limpar() {
         if (ocupado)
             return
-        campoSenha.texto = ""
+        cSenha.texto = ""
         falhou = false
         mensagem = ""
         focoPadrao()
@@ -118,8 +132,9 @@ FocusScope {
     Keys.onEscapePressed: raiz.limpar()
 
     Component.onCompleted: {
-        campoUsuario.texto = usuarioInicial()
-        seletor.indice = Math.max(0, Math.min(sessionModel.lastIndex, sessoes.count - 1))
+        semUsuario = usuarioInicial().length === 0
+        cUsuario.texto = usuarioInicial()
+        cSeletor.indice = Math.max(0, Math.min(sessionModel.lastIndex, sessoes.count - 1))
         focoPadrao()
     }
 
@@ -131,8 +146,20 @@ FocusScope {
         readonly property var estilo: raiz.tema.estilo
         readonly property var txt: Dados.textos
         readonly property real escala: Math.max(0.5, Math.min(raiz.width / 1920, raiz.height / 1080))
-        readonly property int raio: Math.round(raiz.tema.forma.raio * escala)
-        readonly property int borda: Math.max(1, Math.round(raiz.tema.forma.borda * escala))
+        readonly property bool pixel: estilo.pixel === true
+        // em pixel art nao ha canto redondo e todo traco tem 1 pixel de arte (3 px de tela)
+        readonly property int raio: pixel ? 0 : Math.round(raiz.tema.forma.raio * escala)
+        readonly property int borda: pixel ? Math.round(3 * escala) : Math.max(1, Math.round(raiz.tema.forma.borda * escala))
+        readonly property var fp: pixel ? raiz.tema.fonte.pixel : null
+        function fontePixel(papel, carregador) {
+            return carregador.status === FontLoader.Ready ? carregador.name : (fp ? fp[papel].familia : "")
+        }
+        readonly property string pxGotico: fontePixel("gotico", fGotico)
+        readonly property string pxGoticoPequeno: fontePixel("gotico_pequeno", fGoticoP)
+        readonly property string pxRelogio: fontePixel("relogio", fRelogio)
+        readonly property string pxNome: fontePixel("nome", fNome)
+        readonly property string pxRotulo: fontePixel("rotulo", fRotulo)
+        readonly property string pxMiudo: fontePixel("miudo", fMiudo)
         readonly property bool centro: estilo.alinhamento === "centro"
         readonly property string ui: fonteUi.status === FontLoader.Ready ? fonteUi.name : raiz.tema.fonte.ui
         readonly property string destaque: fonteDestaque.status === FontLoader.Ready ? fonteDestaque.name
@@ -142,9 +169,9 @@ FocusScope {
         readonly property int pesoDestaque: raiz.tema.fonte.peso_destaque
         readonly property var eixosDestaque: raiz.tema.fonte.eixos.destaque
         readonly property bool rotulosEmDestaque: estilo.rotulos_fonte === "destaque"
-        readonly property string fonteRotulos: rotulosEmDestaque ? destaque : ui
-        readonly property int pesoRotulos: rotulosEmDestaque ? pesoDestaque : pesoForte
-        readonly property var eixosRotulos: rotulosEmDestaque ? eixosDestaque : ({})
+        readonly property string fonteRotulos: pixel ? pxRotulo : rotulosEmDestaque ? destaque : ui
+        readonly property int pesoRotulos: pixel ? 400 : rotulosEmDestaque ? pesoDestaque : pesoForte
+        readonly property var eixosRotulos: pixel || !rotulosEmDestaque ? ({}) : eixosDestaque
 
         function px(valor) {
             return Math.round(valor * escala)
@@ -168,6 +195,13 @@ FocusScope {
 
         source: raiz.arquivo(raiz.tema.fonte.arquivos.destaque)
     }
+
+    FontLoader { id: fGotico; source: raiz.arquivo(tokens.fp ? tokens.fp.gotico.arquivo : "") }
+    FontLoader { id: fGoticoP; source: raiz.arquivo(tokens.fp ? tokens.fp.gotico_pequeno.arquivo : "") }
+    FontLoader { id: fRelogio; source: raiz.arquivo(tokens.fp ? tokens.fp.relogio.arquivo : "") }
+    FontLoader { id: fNome; source: raiz.arquivo(tokens.fp ? tokens.fp.nome.arquivo : "") }
+    FontLoader { id: fRotulo; source: raiz.arquivo(tokens.fp ? tokens.fp.rotulo.arquivo : "") }
+    FontLoader { id: fMiudo; source: raiz.arquivo(tokens.fp ? tokens.fp.miudo.arquivo : "") }
 
     Instantiator {
         id: usuarios
@@ -216,8 +250,8 @@ FocusScope {
             raiz.ocupado = false
             raiz.falhou = true
             raiz.mensagem = tokens.txt.senha_errada
-            campoSenha.texto = ""
-            campoSenha.forceActiveFocus()
+            cSenha.texto = ""
+            cSenha.forceActiveFocus()
             animaTremor.restart()
         }
 
@@ -252,7 +286,7 @@ FocusScope {
         anchors.fill: parent
         source: raiz.arquivo(raiz.tema.arte.fundo)
         fillMode: Image.PreserveAspectCrop
-        smooth: true
+        smooth: !tokens.pixel
     }
 
     Rectangle {
@@ -281,7 +315,7 @@ FocusScope {
         id: tela
 
         anchors.fill: parent
-        visible: raiz.principal
+        visible: raiz.principal && !raiz.pixel
 
         // relógio e data
         Column {
@@ -653,6 +687,20 @@ FocusScope {
                 enabled: sddm.canPowerOff
                 KeyNavigation.tab: campoUsuario
                 onAcionado: sddm.powerOff()
+            }
+        }
+    }
+
+    // tela de titulo em pixel (grimorio)
+    Loader {
+        id: cargaPixel
+
+        anchors.fill: parent
+        active: raiz.principal && raiz.pixel
+        sourceComponent: Component {
+            TelaPixel {
+                t: tokens
+                r: raiz
             }
         }
     }

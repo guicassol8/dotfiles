@@ -148,12 +148,12 @@ fun posiciona ()
     centro = Window.GetX () + largura / 2;
     topo = Window.GetY ();
 
-    # emblema: no maximo 36% da altura da tela
+    # emblema: no maximo 36% da altura da tela (40% no dominio em pixel, que e ampliado na grade)
     if (altura != emblema.altura_tela)
       {
         lado = emblema.original.GetHeight ();
-        if (altura > 0 && lado > altura * 0.36)
-          lado = Math.Int (altura * 0.36);
+        if (altura > 0 && lado > altura * dom.fracao)
+          lado = Math.Int (altura * dom.fracao);
         if (lado == emblema.original.GetHeight ())
           emblema.image = emblema.original;
         else
@@ -173,7 +173,7 @@ fun posiciona ()
     barra.x = centro - trilho.image.GetWidth () / 2;
     barra.y = topo + altura * 0.80;
     trilho.sprite.SetPosition (barra.x, barra.y, 10);
-    barra.sprite.SetPosition (barra.x, barra.y, 11);
+    barra.sprite.SetPosition (barra.x + dom.barra_dx, barra.y + dom.barra_dy, 11);
 
     mensagem.sprite.SetPosition (centro - mensagem.largura / 2, topo + altura * 0.88, 20);
 

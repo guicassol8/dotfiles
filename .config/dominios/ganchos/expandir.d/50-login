@@ -4,10 +4,13 @@
 # bin/dominio chama este gancho com o nome do domínio depois de cada troca.
 # Ele só grava um arquivo de dados que o tema de login lê na próxima vez que
 # aparecer: /var/lib/dominios/sddm.conf (o theme.conf.user do tema é um link
-# para ele). A pasta é criada por root/instalar-root.sh; enquanto ela não
+# para ele). Além do domínio, grava a ficha do jogador (jogador_nome, jogador_linha,
+# jogador_xp, de jogador.json) para o "arquivo de jogo salvo" da tela do Grimório.
+# A pasta é criada por root/instalar-root.sh; enquanto ela não
 # existir ou não for gravável, o gancho sai calado sem fazer nada.
 dominio="${1:-}"
-pasta=/var/lib/dominios
+pasta="${DOMINIOS_SDDM_PASTA:-/var/lib/dominios}"
+aqui="$(cd "$(dirname "$0")" && pwd)"
 
 case "$dominio" in
     "" | *[!a-z0-9_-]*) exit 0 ;;
@@ -15,7 +18,10 @@ esac
 [ -d "$pasta" ] && [ -w "$pasta" ] || exit 0
 
 tmp="$pasta/.sddm.conf.$$"
-if printf '[General]\ndominio=%s\n' "$dominio" > "$tmp" 2>/dev/null \
+if { printf '[General]\ndominio=%s\n' "$dominio"
+  # so linhas jogador_*= sem caractere de controle (o arquivo e lido pelo greeter do SDDM)
+  python3 "$aqui/../../gerar/login.py" jogador 2>/dev/null | LC_ALL=C grep -E '^jogador_(nome|linha|xp)=[^[:cntrl:]]*$' || true
+} > "$tmp" 2>/dev/null \
     && chmod 644 "$tmp" 2>/dev/null \
     && mv -f "$tmp" "$pasta/sddm.conf" 2>/dev/null; then
     exit 0
