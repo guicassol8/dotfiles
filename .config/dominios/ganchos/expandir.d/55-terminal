@@ -1,0 +1,5 @@
+#!/bin/sh
+# Ao entrar no grimorio, garante os arquivos vivos do terminal com o elemento atual.
+# (O gancho de elemento sai calado fora do grimorio.)
+[ "$1" = grimorio ] || exit 0
+exec "$(dirname "$0")/../elemento.d/60-terminal"

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Terminal do grimorio segue o elemento ativo: aponta os arquivos fixos
+#   ~/.local/state/dominios/kitty-elemento.conf     (incluido pelo kitty do grimorio)
+#   ~/.local/state/dominios/starship-elemento.toml  (STARSHIP_CONFIG do fish, so no grimorio)
+# para a paleta do elemento e manda os kitty abertos recarregarem (SIGUSR1, o mesmo que bin/dominio faz).
+# $1 = elemento novo; sem argumento le elemento.json. SEM_SINAL=1 so grava os arquivos.
+# Silencioso e rapido: sem o dominio grimorio ou sem paleta, nao faz nada.
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+estado="${XDG_STATE_HOME:-$HOME/.local/state}/dominios"
+[ "$(basename "$(readlink "$raiz/atual" 2>/dev/null)")" = grimorio ] || exit 0
+el="${1:-$ELEMENTO}"
+if [ -z "$el" ]; then
+    el=$(sed -n 's/.*"elemento"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$estado/elemento.json" 2>/dev/null | head -1)
+fi
+case "$el" in fogo|agua|terra|vento|eletricidade|mana-pura) ;; *) el=mana-pura ;; esac
+pal="$raiz/_build/grimorio/terminal/$el"
+[ -r "$pal/kitty.conf" ] || python3 "$raiz/gerar/terminal_elemento.py" >/dev/null 2>&1
+[ -r "$pal/kitty.conf" ] || exit 0
+mkdir -p "$estado" 2>/dev/null
+mudou=0
+troca() {  # troca <origem> <destino>: so reescreve se mudou (copia + mv atomico)
+    cmp -s "$1" "$2" 2>/dev/null && return 0
+    cp "$1" "$2.$$" 2>/dev/null && mv -f "$2.$$" "$2" 2>/dev/null && mudou=1
+}
+troca "$pal/starship.toml" "$estado/starship-elemento.toml"
+troca "$pal/kitty.conf" "$estado/kitty-elemento.conf"
+[ "$mudou" = 1 ] && [ -z "$SEM_SINAL" ] && pkill -USR1 -x kitty 2>/dev/null
+exit 0

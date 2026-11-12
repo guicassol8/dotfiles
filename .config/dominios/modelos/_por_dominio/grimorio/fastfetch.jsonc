@@ -1,0 +1,33 @@
+// Dominio {{nome}}. Gerado por `dominio construir` a partir de modelos/_por_dominio/grimorio/fastfetch.jsonc.
+// Ficha do conjurador. fish (saudacao) troca o logo pelo emblema em pixel art no kitty.
+// Linhas de barra e nivel vem de bin/ficha-linha (le ~/.local/state/dominios/jogador.json).
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": { "type": "file-raw", "source": "{{raiz}}/_build/{{dominio}}/logo.txt", "padding": { "top": 1, "left": 2, "right": 3 } },
+  "display": {
+    "separator": " ",
+    "color": { "keys": "{{cor.primaria|ansi}}", "output": "{{cor.texto|ansi}}" },
+    "key": { "width": 18 }
+  },
+  "modules": [
+    "break",
+    { "type": "custom", "format": "{#{{cor.moldura|ansi}}}┏━━━━{#{{cor.primaria|ansi}}}[ {#1}{{ficha.titulo}}{#} {#{{cor.primaria|ansi}}}]{#{{cor.moldura|ansi}}}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸{#}" },
+    { "type": "title", "key": "{#{{cor.moldura|ansi}}}┃ {#{{cor.primaria|ansi}}}{{ficha.usuario}}", "format": "{#1}{user-name}{#}{#{{cor.texto_suave|ansi}}} em {#}{host-name}" },
+    { "type": "command", "key": "{#{{cor.moldura|ansi}}}┃ {#{{cor.primaria|ansi}}}NÍVEL", "text": "{{raiz}}/bin/ficha-linha nivel", "shell": "/bin/sh" },
+    { "type": "command", "key": "{#{{cor.moldura|ansi}}}┃ {#{{cor.secundaria|ansi}}}EXPERIÊNCIA", "text": "{{raiz}}/bin/ficha-linha xp \"{{elementos.mana-pura|rgb}}\" \"{{cor.secundaria|rgb}}\" \"{{cor.contorno|rgb}}\"", "shell": "/bin/sh" },
+    { "type": "command", "key": "{#{{cor.moldura|ansi}}}┃ {#{{cor.primaria|ansi}}}CAPÍTULO", "text": "{{raiz}}/bin/ficha-linha capitulo \"{{elemento.rgb}}\"", "shell": "/bin/sh" },
+    { "type": "custom", "format": "{#{{cor.moldura|ansi}}}┣━━{#{{cor.texto_suave|ansi}}} atributos {#{{cor.moldura|ansi}}}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸{#}" },
+    { "type": "command", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.fogo|ansi}}}VIDA", "text": "{{raiz}}/bin/ficha-linha vida \"{{elementos.fogo|rgb}}\" \"{{elementos.eletricidade|rgb}}\" \"{{cor.contorno|rgb}}\"", "shell": "/bin/sh" },
+    { "type": "command", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.agua|ansi}}}{{ficha.memoria}}", "text": "{{raiz}}/bin/ficha-linha mana \"{{elementos.agua|rgb}}\" \"{{elementos.mana-pura|rgb}}\" \"{{cor.contorno|rgb}}\"", "shell": "/bin/sh" },
+    { "type": "cpu", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.eletricidade|ansi}}}{{ficha.cpu}}", "format": "{name} ({cores-logical})" },
+    { "type": "disk", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.terra|ansi}}}{{ficha.disco}}", "folders": "/", "format": "{size-used} / {size-total} ({size-percentage})" },
+    { "type": "custom", "format": "{#{{cor.moldura|ansi}}}┣━━{#{{cor.texto_suave|ansi}}} mundo {#{{cor.moldura|ansi}}}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸{#}" },
+    { "type": "os", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.vento|ansi}}}{{ficha.so}}", "format": "{pretty-name}" },
+    { "type": "kernel", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.vento|ansi}}}{{ficha.kernel}}", "format": "{release}" },
+    { "type": "wm", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.vento|ansi}}}{{ficha.wm}}" },
+    { "type": "packages", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.vento|ansi}}}{{ficha.pacotes}}" },
+    { "type": "uptime", "key": "{#{{cor.moldura|ansi}}}┃ {#{{elementos.vento|ansi}}}{{ficha.uptime}}" },
+    { "type": "custom", "format": "{#{{cor.moldura|ansi}}}┗━━{#3}{#{{cor.texto_suave|ansi}}} {{lema}} {#}{#{{cor.moldura|ansi}}}━━╸{#}" },
+    { "type": "colors", "symbol": "circle", "paddingLeft": 2 }
+  ]
+}

@@ -1,0 +1,57 @@
+#!/bin/sh
+# ficha-linha <vida|mana|xp|nivel> <cor1 r,g,b> <cor2 r,g,b> <cor_vazio r,g,b>
+# Uma linha da Ficha (fastfetch): barras em blocos (pixel art) ou coracoes, truecolor.
+# Rapido de proposito: um awk, sem jq. Le /sys, /proc e ~/.local/state/dominios/jogador.json.
+tipo=$1; c1=${2:-79,195,255}; c2=${3:-142,123,255}; cv=${4:-34,58,102}
+json=${XDG_STATE_HOME:-$HOME/.local/state}/dominios/jogador.json
+bat=/sys/class/power_supply/BAT1
+[ -d "$bat" ] || bat=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
+case $tipo in
+  vida)  v=$(cat "$bat/capacity" 2>/dev/null); st=$(cat "$bat/status" 2>/dev/null) ;;
+  *)     v=; st= ;;
+esac
+if [ "$tipo" = capitulo ]; then
+  # capitulo <r, g, b do elemento>: nome do elemento e o motivo, lidos de elemento.json
+  ej=${XDG_STATE_HOME:-$HOME/.local/state}/dominios/elemento.json
+  cat "$ej" 2>/dev/null | awk -v c="$c1" '
+    function f(k,   n,p,i){ n=split($0,p,"\""); for(i=1;i<n;i++) if(p[i]==k && p[i+1] ~ /^[ \t]*:[ \t]*$/) return p[i+2]; return "" }
+    { if(!e) e=f("elemento"); if(!m) m=f("motivo") }
+    END { gsub(/,/," ",c); split(c,a," ")
+      n=(e=="fogo")?"Fogo":(e=="agua")?"Água":(e=="terra")?"Terra":(e=="vento")?"Vento":(e=="eletricidade")?"Eletricidade":(e=="mana-pura")?"Mana Pura":""
+      if(n==""){ print "\033[2m—  sem registro\033[0m"; exit }
+      printf "\033[1;38;2;%d;%d;%dm%s\033[0m  ▪  %s\n", a[1],a[2],a[3], n, m }'
+  exit 0
+fi
+{ [ "$tipo" = mana ] && cat /proc/meminfo; [ "$tipo" = xp ] || [ "$tipo" = nivel ] && cat "$json" 2>/dev/null; } | awk -v tipo="$tipo" -v c1="$c1" -v c2="$c2" -v cv="$cv" -v vida="$v" -v st="$st" '
+function cor(c,   a){ split(c,a,","); return a }
+function mix(a,b,t,   r,g,bl){ r=a[1]+(b[1]-a[1])*t; g=a[2]+(b[2]-a[2])*t; bl=a[3]+(b[3]-a[3])*t; return sprintf("\033[38;2;%d;%d;%dm",r,g,bl) }
+function barra(p, ca, cb,   i,n,m,s,A,B,V,L,t){ L=20; t=p*L*2; n=int(t/2); m=(int(t+0.5)%2); if(p>0&&t<1)m=1
+  if(n>L)n=L; if(n<0)n=0; if(n==L)m=0
+  split(ca,A,","); split(cb,B,","); split(cv,V,",")
+  for(i=0;i<L;i++){ if(i<n) s=s mix(A,B,i/(L-1)) "█"; else if(i==n&&m) s=s mix(A,B,i/(L-1)) "▌"; else s=s sprintf("\033[38;2;%d;%d;%dm░",V[1],V[2],V[3]) }
+  return s "\033[0m" }
+function coracoes(p, ca,   i,n,s,A,V){ n=int(p*10+0.5); if(p>0&&n==0)n=1; split(ca,A,","); split(cv,V,",")
+  for(i=0;i<10;i++){ if(i<n) s=s sprintf("\033[38;2;%d;%d;%dm ",A[1],A[2],A[3]); else s=s sprintf("\033[38;2;%d;%d;%dm ",V[1],V[2],V[3]) }
+  return s "\033[0m" }
+function campo(k,   m){ if(match($0,"\"" k "\"[ \t]*:[ \t]*(\"[^\"]*\"|[0-9.]+)")){ m=substr($0,RSTART,RLENGTH); sub(/^[^:]*:[ \t]*/,"",m); gsub(/"/,"",m); return m } return "" }
+{ buf=buf $0 " " }
+END {
+  $0=buf
+  if (tipo=="vida") {
+    if (vida=="") { print "\033[2msem bateria\033[0m"; exit }
+    a=c1; if (vida+0<25) a=c2
+    ic=(st=="Charging")?" ⚡":((st=="Full")?" ✔":"")
+    printf "%s \033[1m%d%%\033[0m%s\n", coracoes(vida/100,a), vida, ic
+  } else if (tipo=="mana") {
+    split($0,L," "); for(i=1;i<=NF;i++){ if($i=="MemTotal:")t=$(i+1); if($i=="MemAvailable:")d=$(i+1) }
+    u=t-d; printf "%s \033[1m%d%%\033[0m  %.1f/%.1f GiB\n", barra(u/t,c1,c2), u*100/t, u/1048576, t/1048576
+  } else if (tipo=="xp") {
+    xp=campo("xp"); px=campo("xp_proximo")
+    if (xp==""||px==""||px+0==0) { print "\033[2m—  sem registro\033[0m"; exit }
+    printf "%s \033[1m%d%%\033[0m  %d/%d\n", barra(xp/px,c1,c2), xp*100/px, xp, px
+  } else if (tipo=="nivel") {
+    nv=campo("nivel"); rk=campo("rank"); ti=campo("titulo")
+    if (nv=="") { print "\033[2mNV.--  ▪  RANK --  ▪  sem registro de nível\033[0m"; exit }
+    printf "\033[1mNV.%s\033[0m  ▪  RANK \033[1m%s\033[0m  ▪  %s\n", nv, (rk==""?"--":rk), (ti==""?"Conjurador":ti)
+  }
+}'

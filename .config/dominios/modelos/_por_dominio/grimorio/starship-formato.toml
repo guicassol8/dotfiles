@@ -1,24 +1,35 @@
-# Grimorio: uma linha de texto corrido, com o sigilo como marca
-format = """[◈](primaria) $directory$git_branch$git_status$jobs$fill$nodejs$python$rust$cmd_duration
-$character"""
+# Grimorio: duas linhas, como uma pagina do grimorio. Linha 1: sigilo, pasta, git ... falha, duracao, selo.
+format = """[╭─](moldura)[{{elemento.glifo}} {{elemento.inicial}}](bold primaria) $directory$git_branch$git_status$jobs$fill$status$nodejs$python$rust$cmd_duration$env_var
+[╰─](moldura)$character"""
 
 [fill]
 symbol = "·"
-style = "contorno"
+style = "moldura"
 
 [directory]
 truncation_length = 3
 truncate_to_repo = true
+truncation_symbol = "…/"
 read_only = " 󰌾"
 format = "[$path]($style)[$read_only]($read_only_style) "
 style = "italic texto"
 
 [git_branch]
 symbol = " "
-format = "[em](suave) [$symbol$branch]($style) "
+format = "[em](suave) [$symbol$branch]($style)"
 style = "primaria"
+
+[status]
+disabled = false
+format = '[ ✧ A conjuração falhou ▪ $status ](bold fogo)'
+map_symbol = false
+pipestatus = false
+
+[env_var.GRIMORIO_SELO]
+variable = "GRIMORIO_SELO"
+format = '[ ⟦](moldura)[ $env_value ](bold secundaria)[⟧](moldura)'
 
 [character]
 success_symbol = "[✦](primaria)"
-error_symbol = "[✦](erro)"
+error_symbol = "[✦](bold fogo)"
 vimcmd_symbol = "[✧](terciaria)"

@@ -1,0 +1,703 @@
+#!/usr/bin/env python3
+"""brinquedos: menu de brinquedos de terminal + tres animacoes proprias do Grimorio.
+
+  brinquedos                 menu (fzf, gum ou lista numerada) so com o que esta instalado
+  brinquedos --lista         imprime o que esta disponivel
+  brinquedos chuva           chuva de runas em roxo de mana
+  brinquedos fogueira        ponto de descanso: fogueira de acampamento em pixel art
+  brinquedos circulo         circulo magico girando, com os seis elementos
+  brinquedos <nome> --segundos N     (animacoes proprias) sai sozinho depois de N segundos
+
+Animacoes: so biblioteca padrao, truecolor, 30 quadros por segundo, atualizam so as celulas
+que mudaram. Saem com q, Esc ou Ctrl+C e devolvem o terminal como estava.
+Cores lidas de _build/grimorio/tokens.json (com padrao embutido).
+"""
+import json
+import math
+import os
+import random
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import termios
+import time
+import tty
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent
+FPS = 30
+
+# ------------------------------------------------------------------ cores
+
+
+def hexa(h):
+    h = h.lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+def carrega_paleta():
+    p = {
+        "fundo": "#17141D", "contorno": "#3A3348", "texto": "#EDE7F6", "texto_suave": "#B0A7C4",
+        "primaria": "#A99BD9", "secundaria": "#C8BDEC",
+        "fogo": "#E8866E", "agua": "#7FBBE0", "terra": "#D3AE73", "vento": "#74C5B0",
+        "eletricidade": "#FFD43B", "mana-pura": "#B4A5DD",
+    }
+    try:
+        t = json.loads((RAIZ / "_build/grimorio/tokens.json").read_text())
+        p.update({k: v for k, v in t["cor"].items() if k in p})
+        p.update({k: v for k, v in t.get("elementos", {}).items() if k in p})
+    except (OSError, KeyError, ValueError):
+        pass
+    return {k: hexa(v) for k, v in p.items()}
+
+
+PAL = carrega_paleta()
+ELEMENTOS = [PAL[k] for k in ("fogo", "agua", "terra", "vento", "eletricidade", "mana-pura")]
+
+
+def mix(a, b, t):
+    t = 0.0 if t < 0 else 1.0 if t > 1 else t
+    return (int(a[0] + (b[0] - a[0]) * t), int(a[1] + (b[1] - a[1]) * t), int(a[2] + (b[2] - a[2]) * t))
+
+
+def rampa(stops, t):
+    """stops: lista de (posicao 0..1, cor)."""
+    if t <= stops[0][0]:
+        return stops[0][1]
+    for (p0, c0), (p1, c1) in zip(stops, stops[1:]):
+        if t <= p1:
+            return mix(c0, c1, (t - p0) / (p1 - p0 or 1))
+    return stops[-1][1]
+
+
+# ------------------------------------------------------------ terminal e quadro
+
+ESC = "\x1b"
+
+
+class Terminal:
+    def __enter__(self):
+        self.fd = sys.stdin.fileno() if sys.stdin.isatty() else None
+        self.antigo = termios.tcgetattr(self.fd) if self.fd is not None else None
+        if self.fd is not None:
+            tty.setcbreak(self.fd)
+        sys.stdout.write(f"{ESC}[?1049h{ESC}[?25l{ESC}[2J")
+        sys.stdout.flush()
+        for s in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(s, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt))
+        return self
+
+    def __exit__(self, *_):
+        sys.stdout.write(f"{ESC}[0m{ESC}[?25h{ESC}[?1049l")
+        sys.stdout.flush()
+        if self.antigo is not None:
+            termios.tcsetattr(self.fd, termios.TCSADRAIN, self.antigo)
+
+    def quer_sair(self):
+        if self.fd is None:
+            return False
+        sair = False
+        while select.select([self.fd], [], [], 0)[0]:
+            dado = os.read(self.fd, 64)
+            if not dado or dado in (b"\x1b",) or b"q" in dado or b"Q" in dado:
+                sair = True
+        return sair
+
+
+class Quadro:
+    """Diferencia celulas: so escreve o que mudou desde o quadro anterior."""
+
+    def __init__(self, cena):
+        self.cena = cena
+        self.prev = {}      # celulas tocadas no quadro anterior (o resto e fundo)
+        self.primeiro = True
+
+    def desenha(self, cells):
+        cena = self.cena
+        saida = []
+        if self.primeiro:
+            self.primeiro = False
+            chaves = [(x, y) for y in range(cena.rows) for x in range(cena.cols)]
+            primeiro = True
+        else:
+            chaves = sorted(self.prev.keys() | cells.keys(), key=lambda k: (k[1], k[0]))
+            primeiro = False
+        novo = {}
+        cur = None
+        fg = bg = None
+        for k in chaves:
+            c = cells.get(k)
+            if c is None:
+                c = cena.fundo(k)
+            antes = None if primeiro else (self.prev.get(k) or cena.fundo(k))
+            if k in cells:
+                novo[k] = c
+            if antes == c:
+                continue
+            x, y = k
+            if cur != (x, y):
+                saida.append(f"{ESC}[{y + 1};{x + 1}H")
+            cur = (x + 1, y)
+            ch, f, b = c
+            if f != fg:
+                saida.append(f"{ESC}[38;2;{f[0]};{f[1]};{f[2]}m")
+                fg = f
+            if b != bg:
+                saida.append(f"{ESC}[48;2;{b[0]};{b[1]};{b[2]}m")
+                bg = b
+            saida.append(ch)
+        self.prev = novo
+        if saida:
+            sys.stdout.write(f"{ESC}[?2026h" + "".join(saida) + f"{ESC}[?2026l")
+            sys.stdout.flush()
+
+
+class Cena:
+    """Base: cenas desenhadas direto em celulas (char, fg, bg)."""
+
+    def __init__(self, cols, rows):
+        self.cols, self.rows = cols, rows
+        self.W, self.H = cols, rows * 2
+        self.bgc = PAL["fundo"]
+
+    def fundo(self, k):
+        return (" ", self.bgc, self.bgc)
+
+
+class CenaPixel(Cena):
+    """Base: pixel quadrado = meio bloco (cada celula tem 2 pixels verticais)."""
+
+    def __init__(self, cols, rows):
+        super().__init__(cols, rows)
+        self.pix = {}
+        self.txt = {}
+        self.estatico = {}
+        self.grad = [PAL["fundo"]] * self.H
+
+    def pxs(self, x, y, c):
+        if 0 <= x < self.W and 0 <= y < self.H:
+            self.pix[(x, y)] = c
+
+    def fundo_px(self, x, y):
+        return self.estatico.get((x, y)) or self.grad[y]
+
+    def fundo(self, k):
+        x, y = k
+        return ("▀", self.fundo_px(x, 2 * y), self.fundo_px(x, 2 * y + 1))
+
+    def texto(self, cx, cy, s, cor, negrito=False):
+        for i, ch in enumerate(s):
+            if 0 <= cx + i < self.cols and 0 <= cy < self.rows and ch != " ":
+                self.txt[(cx + i, cy)] = (ch, cor)
+
+    def compoe(self):
+        cells = {}
+        meio = {}
+        for (x, y), c in self.pix.items():
+            k = (x, y >> 1)
+            e = meio.get(k)
+            if e is None:
+                e = meio[k] = [None, None]
+            e[y & 1] = c
+        for (x, cy), (t, b) in meio.items():
+            cells[(x, cy)] = ("▀", t or self.fundo_px(x, 2 * cy), b or self.fundo_px(x, 2 * cy + 1))
+        for k, (ch, cor) in self.txt.items():
+            base = cells.get(k) or self.fundo(k)
+            cells[k] = (ch, cor, base[2])
+        self.pix = {}
+        self.txt = {}
+        return cells
+
+
+# ------------------------------------------------------------------ CHUVA
+
+RUNAS = [chr(c) for c in range(0x16A0, 0x16EB)] + list("✦✧◈◇⟡")
+
+
+class Chuva(Cena):
+    def __init__(self, cols, rows):
+        super().__init__(cols, rows)
+        self.colunas = [self.nova(True) for _ in range(cols)]
+        self.glifos = {}
+
+    def nova(self, inicio=False):
+        r = random.random
+        comp = random.randint(7, max(9, self.rows // 2 + 4))
+        elem = random.choice(ELEMENTOS) if r() < 0.07 else None
+        return {"y": -random.uniform(0, self.rows * (1.6 if inicio else 0.8)) - (0 if inicio else comp),
+                "v": random.uniform(7, 22), "n": comp, "elem": elem}
+
+    def glifo(self, x, y):
+        g = self.glifos.get((x, y))
+        if g is None or random.random() < 0.012:
+            g = self.glifos[(x, y)] = random.choice(RUNAS)
+        return g
+
+    def quadro(self, t, dt):
+        cells = {}
+        cab = (246, 240, 255)
+        for x, d in enumerate(self.colunas):
+            d["y"] += d["v"] * dt
+            if d["y"] - d["n"] > self.rows:
+                self.colunas[x] = d = self.nova()
+            hy = int(d["y"])
+            base = d["elem"] or PAL["primaria"]
+            for i in range(d["n"]):
+                y = hy - i
+                if y < 0 or y >= self.rows:
+                    continue
+                f = i / d["n"]
+                if i == 0:
+                    cor = cab if not d["elem"] else mix(d["elem"], cab, 0.6)
+                elif i == 1:
+                    cor = mix(base, cab, 0.45)
+                else:
+                    cor = mix(mix(base, cab, 0.15 * (1 - f)), PAL["fundo"], min(0.92, f ** 1.2))
+                cells[(x, y)] = (self.glifo(x, y), cor, self.bgc)
+        return cells
+
+
+# --------------------------------------------------------------- FOGUEIRA
+
+PALETA_FOGO = [(0.0, (26, 5, 10)), (0.22, (140, 28, 22)), (0.48, (230, 92, 38)),
+               (0.72, (255, 168, 48)), (0.9, (255, 226, 130)), (1.0, (255, 250, 225))]
+MAGO = [
+    "....#....",
+    "...###...",
+    "..#####..",
+    ".#######.",
+    "...ppp...",
+    "...pPp...",
+    "..rrrrr..",
+    ".rrrrrrr.",
+    ".rrrrrrr.",
+    ".rrrrrrr.",
+]
+
+
+class Fogueira(CenaPixel):
+    MAXI = 36
+    FW = 26
+    FH = 27
+
+    def __init__(self, cols, rows):
+        super().__init__(cols, rows)
+        self.S = 2 if (cols >= 90 and rows >= 28) else 1
+        S = self.S
+        self.LW, self.LH = self.W // S, self.H // S
+        self.gy = int(self.LH * 0.76)
+        self.fx = self.LW // 2
+        self.buf = [[0] * self.FW for _ in range(self.FH)]
+        self.pal = [rampa(PALETA_FOGO, i / self.MAXI) for i in range(self.MAXI + 1)]
+        self.brasas = []
+        self.estrelas = []
+        self.t_sim = 0.0
+        self.chama = 0.8
+        self.monta_cenario()
+
+    def lpx(self, x, y, c, alvo=None):
+        S = self.S
+        d = self.estatico if alvo == "est" else None
+        for dy in range(S):
+            for dx in range(S):
+                px, py = int(x) * S + dx, int(y) * S + dy
+                if 0 <= px < self.W and 0 <= py < self.H:
+                    if d is not None:
+                        d[(px, py)] = c
+                    else:
+                        self.pix[(px, py)] = c
+
+    def monta_cenario(self):
+        S, LW, LH, gy = self.S, self.LW, self.LH, self.gy
+        topo, hor = (10, 8, 20), (66, 38, 74)
+        for y in range(self.H):
+            ly = y / S
+            if ly < gy:
+                self.grad[y] = mix(topo, hor, (ly / gy) ** 1.6)
+            else:
+                self.grad[y] = mix((30, 24, 40), (14, 11, 20), (ly - gy) / max(1, LH - gy))
+        rnd = random.Random(11)
+        # estrelas
+        for _ in range(int(LW * gy / 120)):
+            x, y = rnd.randrange(LW), rnd.randrange(int(gy * 0.7))
+            self.estrelas.append((x, y, rnd.uniform(0, 6.28), rnd.uniform(0.6, 2.2)))
+        # lua
+        mx, my, mr = int(LW * 0.80), int(gy * 0.2), max(4, int(gy * 0.11))
+        for y in range(-mr, mr + 1):
+            for x in range(-mr, mr + 1):
+                d = math.hypot(x, y)
+                if d <= mr:
+                    c = mix((226, 220, 246), (170, 160, 210), (x + y + 2 * mr) / (4 * mr))
+                    if (x + 2) ** 2 + (y - 1) ** 2 < (mr * 0.28) ** 2 or (x - 2) ** 2 + (y + 2) ** 2 < (mr * 0.2) ** 2:
+                        c = mix(c, (130, 120, 175), 0.5)
+                    self.lpx(mx + x, my + y, c, "est")
+        # cordilheira e chao
+        for x in range(LW):
+            h = 9 + 5 * math.sin(x / 9.0) + 3.5 * math.sin(x / 4.1 + 1) + 4 * math.sin(x / 21.0 + 2)
+            for y in range(int(gy - h), gy):
+                self.lpx(x, y, mix((34, 26, 52), (22, 17, 34), (y - (gy - h)) / max(1, h)), "est")
+        for x in range(LW):
+            for y in range(gy, LH):
+                v = (x * 7 + y * 13) % 11
+                c = mix((30, 24, 40), (14, 11, 20), (y - gy) / max(1, LH - gy))
+                if v == 0:
+                    c = mix(c, (60, 76, 70), 0.5)
+                self.lpx(x, y, c, "est")
+        # pinheiros
+        for tx, th in ((int(LW * 0.07), 22), (int(LW * 0.14), 16), (int(LW * 0.90), 20), (int(LW * 0.96), 14), (int(LW * 0.24), 11), (int(LW * 0.74), 12)):
+            th = int(th * min(1.4, gy / 38))
+            for i in range(th):
+                larg = int((i / th) * (th * 0.38)) + 1
+                for x in range(-larg, larg + 1):
+                    self.lpx(tx + x, gy - th + i - 1, (14, 22, 28) if (x + i) % 5 else (18, 30, 36), "est")
+            for i in range(3):
+                self.lpx(tx, gy - 3 + i, (30, 20, 20), "est")
+
+    # ---- simulacao
+    def passo_fogo(self):
+        FW, FH, M = self.FW, self.FH, self.MAXI
+        b = self.buf
+        c = (FW - 1) / 2
+        for x in range(FW):
+            perfil = max(0.0, 1 - (abs(x - c) / (c + 0.5)) ** 3.0)
+            b[FH - 1][x] = int(M * perfil * random.uniform(0.82, 1.0) * self.chama)
+        for y in range(FH - 1):
+            for x in range(FW):
+                r = random.randint(0, 3)
+                src = b[y + 1][x]
+                dx = x - r + 1
+                if 0 <= dx < FW:
+                    b[y][dx] = max(0, src - (r + 1) // 2 - (1 if abs(x - c) > c * 0.55 and r >= 2 else 0))
+                else:
+                    b[y][x] = 0
+
+    def quadro(self, t, dt):
+        S, gy, fx = self.S, self.gy, self.fx
+        self.t_sim += dt
+        self.chama = 0.86 + 0.14 * math.sin(t * 5.3) * math.sin(t * 2.1 + 1)
+        if self.t_sim >= 1 / 16:
+            self.t_sim = 0.0
+            self.passo_fogo()
+        # estrelas
+        for x, y, ph, v in self.estrelas:
+            br = 0.35 + 0.65 * (0.5 + 0.5 * math.sin(t * v + ph))
+            self.lpx(x, y, mix(self.grad[y * S], (200, 196, 235), br * 0.7))
+        # brilho do fogo no chao
+        for dx in range(-26, 27):
+            x = fx + dx
+            for k in range(4):
+                f = max(0.0, 1 - abs(dx) / 27) ** 1.6 * (1 - k / 5) * self.chama
+                if f > 0.04:
+                    base = self.estatico.get((x * S, (gy + k) * S)) or self.grad[(gy + k) * S]
+                    self.lpx(x, gy + k, mix(base, (255, 130, 40), f * 0.55))
+        # chama
+        x0 = fx - self.FW // 2
+        y0 = gy - 1 - (self.FH - 1)
+        for y in range(self.FH):
+            for x in range(self.FW):
+                v = self.buf[y][x]
+                if v > 3:
+                    self.lpx(x0 + x, y0 + y, self.pal[v])
+        # toras
+        madeira, topo = (88, 56, 38), (134, 92, 58)
+        for i in range(21):
+            self.lpx(x0 + 3 + i, gy - 1 - i // 5 - 1, madeira)
+            self.lpx(x0 + 3 + i, gy - 2 - i // 5 - 1, topo)
+        for i in range(21):
+            self.lpx(x0 + 22 - i, gy - 1 - i // 5 - 1, madeira)
+            self.lpx(x0 + 22 - i, gy - 2 - i // 5 - 1, topo)
+        for i in range(24):
+            self.lpx(x0 + 1 + i, gy, (60, 38, 28))
+        for x in (x0 + 2, x0 + 23):
+            self.lpx(x, gy - 1, (200, 150, 90))
+        # mago sentado de frente para o fogo
+        mx, my = fx - 24, gy - len(MAGO)
+        brilho = 0.35 + 0.35 * self.chama
+        cores = {"#": PAL["primaria"], "p": (214, 170, 140), "P": (60, 40, 40), "r": mix(PAL["primaria"], (20, 14, 30), 0.55)}
+        for j, linha in enumerate(MAGO):
+            for i, ch in enumerate(linha):
+                if ch == ".":
+                    continue
+                c = cores[ch]
+                c = mix(c, (255, 150, 70), brilho * (i / 8) ** 2 * 0.8)
+                self.lpx(mx + i, my + j, c)
+        self.lpx(mx + 4, my - 1, PAL["secundaria"])
+        # brasas
+        if random.random() < 0.3:
+            self.brasas.append([fx + random.uniform(-7, 7), gy - 8 - random.uniform(0, 6), random.uniform(-2.5, 2.5),
+                                -random.uniform(7, 17), 0.0, random.uniform(1.6, 3.6)])
+        vivas = []
+        for b in self.brasas:
+            b[4] += dt
+            b[0] += (b[2] + math.sin(t * 3 + b[5] * 4) * 2.2) * dt
+            b[1] += b[3] * dt
+            f = b[4] / b[5]
+            if f < 1 and b[1] > 0:
+                vivas.append(b)
+                if f < 0.8 or int(t * 24 + b[5] * 7) % 2:
+                    self.lpx(b[0], b[1], rampa([(0, (255, 232, 140)), (0.4, (255, 150, 50)), (1, (150, 40, 28))], f))
+        self.brasas = vivas[-90:]
+        cells = self.compoe()
+        msg = "✦  PONTO DE DESCANSO  ✦"
+        self.texto((self.cols - len(msg)) // 2, self.rows - 4, msg, mix(PAL["primaria"], PAL["texto"], 0.4))
+        sub = "       ✦ ✦ ✦ ✦ ✦   restaurados"
+        self.texto((self.cols - len(sub)) // 2, self.rows - 3, sub, PAL["texto_suave"])
+        for k, (ch, cor) in list(self.txt.items()):
+            base = cells.get(k) or self.fundo(k)
+            cells[k] = (ch, cor, base[2])
+        self.txt = {}
+        return cells
+
+
+# ---------------------------------------------------------------- CIRCULO
+
+
+class Circulo(CenaPixel):
+    def __init__(self, cols, rows):
+        super().__init__(cols, rows)
+        for y in range(self.H):
+            self.grad[y] = mix((9, 7, 15), PAL["fundo"], 1 - abs(y / self.H - 0.5) * 1.4)
+        self.cx, self.cy = self.W / 2, self.H / 2 + 1
+        self.hist = [[] for _ in range(6)]
+        self.fagulhas = []
+        self.runas = [random.choice(RUNAS[:40]) for _ in range(40)]
+
+    def proj(self, ang, r, sy, z=0.0):
+        return self.cx + r * math.cos(ang), self.cy + r * math.sin(ang) * sy - z
+
+    def anel(self, r, sy, rot, cor, esp=1, tracejado=0, brilho=lambda a: 1.0, fundo=None):
+        R = max(r * 6.3, 8)
+        n = int(R * 1.15)
+        base = fundo or PAL["fundo"]
+        for i in range(n):
+            a = i * 6.2832 / n
+            if tracejado and (int(a * tracejado / 6.2832 * 2 + rot * tracejado / 6.2832 * 2)) % 2:
+                continue
+            x, y = self.proj(a + rot, r, sy)
+            c = mix(base, cor, brilho(a + rot))
+            for k in range(esp):
+                self.pxs(round(x), round(y) + k - esp // 2, c)
+
+    def linha(self, p, q, cor, sy_unused=None, brilho=1.0):
+        n = int(max(abs(q[0] - p[0]), abs(q[1] - p[1])) * 1.2) + 1
+        for i in range(n + 1):
+            f = i / n
+            self.pxs(round(p[0] + (q[0] - p[0]) * f), round(p[1] + (q[1] - p[1]) * f), mix(PAL["fundo"], cor, brilho))
+
+    def quadro(self, t, dt):
+        W, H = self.W, self.H
+        sy = 0.58 + 0.06 * math.sin(t * 0.35)
+        R = min(W / 2 - 4, (H / 2 - 14) / sy)
+        R = max(R, 10)
+        prof = lambda a: 0.55 + 0.45 * (0.5 + 0.5 * math.sin(a))   # lado de tras mais escuro
+        pulso = 0.8 + 0.2 * math.sin(t * 2.4)
+        # luz no chao do circulo (disco suave)
+        for k in range(8, 0, -1):
+            rr = R * 0.34 * k / 8
+            self.anel(rr, sy, 0, mix(PAL["fundo"], PAL["primaria"], 0.07 * (8 - k) / 8 * pulso), esp=3)
+        # aneis externos
+        self.anel(R, sy, t * 0.12, PAL["primaria"], esp=2, brilho=prof)
+        self.anel(R * 0.955, sy, -t * 0.1, PAL["contorno"], esp=1, brilho=prof)
+        self.anel(R * 0.93, sy, t * 0.35, PAL["secundaria"], esp=1, tracejado=48, brilho=prof)
+        self.anel(R * 0.74, sy, 0, PAL["primaria"], esp=1, brilho=prof)
+        self.anel(R * 0.36, sy, -t * 0.5, PAL["mana-pura"], esp=1, tracejado=18, brilho=prof)
+        self.anel(R * 0.30, sy, 0, PAL["primaria"], esp=1, brilho=lambda a: prof(a) * pulso)
+        # hexagrama (dois triangulos) girando
+        rv = R * 0.72
+        rot = t * 0.22
+        vert = []
+        for k in range(6):
+            a = rot + k * math.pi / 3
+            vert.append((a, self.proj(a, rv, sy)))
+        for tri in ((0, 2, 4), (1, 3, 5)):
+            for i in range(3):
+                a, b = vert[tri[i]], vert[tri[(i + 1) % 3]]
+                br = 0.55 + 0.25 * pulso
+                self.linha(a[1], b[1], PAL["secundaria"], brilho=br)
+        # raios do centro aos vertices
+        for a, p in vert:
+            self.linha((self.cx, self.cy), p, PAL["contorno"], brilho=0.5)
+        # circulo de runas (texto por celula)
+        for i, g in enumerate(self.runas):
+            a = i * 6.2832 / len(self.runas) - t * 0.18
+            x, y = self.proj(a, R * 0.835, sy)
+            cx, cy = int(x), int(y / 2)
+            self.texto(cx, cy, g, mix(PAL["fundo"], PAL["secundaria"], 0.35 + 0.65 * prof(a) * (0.75 + 0.25 * math.sin(t * 3 + i))))
+        # pilares de luz e orbes dos elementos
+        for k, (a, p) in enumerate(vert):
+            cor = ELEMENTOS[k]
+            h = 10 + 6 * math.sin(t * 1.7 + k)
+            fundo_frente = prof(a)
+            for j in range(int(h)):
+                f = 1 - j / h
+                self.pxs(round(p[0]), round(p[1]) - j - 3, mix(PAL["fundo"], cor, 0.55 * f * fundo_frente))
+            hist = self.hist[k]
+            hist.append((p[0], p[1]))
+            del hist[:-14]
+            for j, (hx, hy) in enumerate(hist[:-1]):
+                self.pxs(round(hx), round(hy) - 3, mix(PAL["fundo"], cor, 0.5 * (j / len(hist)) * fundo_frente))
+            r = 3 if fundo_frente > 0.8 else 2
+            for dy in range(-r - 2, r + 3):
+                for dx in range(-r - 2, r + 3):
+                    d = math.hypot(dx, dy)
+                    if d <= r:
+                        c = mix(cor, (255, 255, 255), 0.5 if (dx + dy) < 0 and d < r - 0.6 else 0.0)
+                        self.pxs(round(p[0]) + dx, round(p[1]) + dy - 3, mix(PAL["fundo"], c, 0.55 + 0.45 * fundo_frente))
+                    elif d <= r + 1.6:
+                        self.pxs(round(p[0]) + dx, round(p[1]) + dy - 3, mix(PAL["fundo"], cor, 0.28 * fundo_frente))
+        # nucleo: feixe vertical e orbe
+        alt = R * 0.55 * (0.85 + 0.15 * pulso)
+        for j in range(int(alt)):
+            f = 1 - j / alt
+            larg = 1 + int(f * 2)
+            for dx in range(-larg, larg + 1):
+                self.pxs(round(self.cx) + dx, round(self.cy) - j - 2, mix(PAL["fundo"], PAL["mana-pura"], 0.95 * f * (1 - abs(dx) / (larg + 1))))
+        r = 4 + int(1.2 * pulso)
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                d = math.hypot(dx, dy)
+                if d <= r:
+                    self.pxs(round(self.cx) + dx, round(self.cy) + dy - 2, mix((255, 255, 255), PAL["mana-pura"], d / r))
+        # fagulhas
+        if random.random() < 0.8:
+            a = random.uniform(0, 6.28)
+            rr = random.uniform(0.1, 0.95) * R
+            x, y = self.proj(a, rr, sy)
+            self.fagulhas.append([x, y, random.uniform(-2, 2), -random.uniform(5, 16), 0.0, random.uniform(1.0, 2.6), random.choice(ELEMENTOS + [PAL["mana-pura"]] * 4)])
+        vivas = []
+        for f in self.fagulhas:
+            f[4] += dt
+            f[0] += f[2] * dt
+            f[1] += f[3] * dt
+            q = f[4] / f[5]
+            if q < 1:
+                vivas.append(f)
+                self.pxs(round(f[0]), round(f[1]), mix(f[6], PAL["fundo"], q ** 1.5))
+        self.fagulhas = vivas[-120:]
+        cells = self.compoe()
+        msg = "✦  CÍRCULO DE CONJURAÇÃO  ✦"
+        self.texto((self.cols - len(msg)) // 2, self.rows - 2, msg, PAL["texto_suave"])
+        for k, (ch, cor) in list(self.txt.items()):
+            base = cells.get(k) or self.fundo(k)
+            cells[k] = (ch, cor, base[2])
+        self.txt = {}
+        # as runas e a legenda sobrepoem o fundo sem apagar o pixel de baixo
+        return cells
+
+
+CENAS = {"chuva": Chuva, "fogueira": Fogueira, "circulo": Circulo}
+
+
+def roda(nome, segundos):
+    if not sys.stdout.isatty():
+        sys.exit("brinquedos: precisa de um terminal")
+    cls = CENAS[nome]
+    with Terminal() as term:
+        tam = shutil.get_terminal_size((80, 24))
+        cena = cls(tam.columns, tam.lines)
+        quadro = Quadro(cena)
+        t0 = ultimo = time.perf_counter()
+        proximo = t0
+        try:
+            while True:
+                agora = time.perf_counter()
+                t = agora - t0
+                if segundos and t >= segundos:
+                    break
+                if term.quer_sair():
+                    break
+                novo = shutil.get_terminal_size((80, 24))
+                if (novo.columns, novo.lines) != (cena.cols, cena.rows):
+                    cena = cls(novo.columns, novo.lines)
+                    quadro = Quadro(cena)
+                    sys.stdout.write(f"{ESC}[2J")
+                dt = min(0.1, agora - ultimo)
+                ultimo = agora
+                quadro.desenha(cena.quadro(t, dt))
+                proximo += 1 / FPS
+                resto = proximo - time.perf_counter()
+                if resto > 0:
+                    time.sleep(resto)
+                else:
+                    proximo = time.perf_counter()
+        except KeyboardInterrupt:
+            pass
+
+
+# ------------------------------------------------------------------- menu
+
+EXTERNOS = [
+    ("cmatrix", ["cmatrix", "-b"], "cmatrix: chuva clássica"),
+    ("pipes.sh", ["pipes.sh"], "pipes.sh: canos coloridos"),
+    ("cbonsai", ["cbonsai", "-l", "-i"], "cbonsai: bonsai crescendo"),
+    ("asciiquarium", ["asciiquarium"], "asciiquarium: aquário"),
+    ("astroterm", ["astroterm"], "astroterm: mapa estelar"),
+    ("cava", ["cava"], "cava: visualizador de áudio"),
+    ("btop", ["btop"], "btop: monitor do sistema"),
+    ("tty-clock", ["tty-clock", "-c", "-C", "5"], "tty-clock: relógio grande"),
+]
+PROPRIOS = [
+    ("chuva", "chuva: runas em roxo de mana"),
+    ("fogueira", "fogueira: ponto de descanso em pixel art"),
+    ("circulo", "circulo: círculo mágico dos seis elementos"),
+]
+
+
+def disponiveis():
+    itens = [(n, d, None) for n, d in PROPRIOS]
+    itens += [(n, d, cmd) for n, cmd, d in EXTERNOS if shutil.which(cmd[0])]
+    return itens
+
+
+def menu(itens):
+    rotulos = [f"{n:<13} {d.split(': ', 1)[1]}" for n, d, _ in itens]
+    if shutil.which("gum"):
+        r = subprocess.run(["gum", "choose", "--header", "Brinquedos", *rotulos], stdout=subprocess.PIPE, text=True)
+        escolha = r.stdout.strip()
+    elif shutil.which("fzf"):
+        r = subprocess.run(["fzf", "--prompt", "brinquedo ", "--height", "~12", "--reverse", "--no-multi", "--border-label", " ✦ BRINQUEDOS ✦ "],
+                           input="\n".join(rotulos), stdout=subprocess.PIPE, text=True)
+        escolha = r.stdout.strip()
+    else:
+        for i, r in enumerate(rotulos, 1):
+            print(f"  {i}) {r}")
+        try:
+            n = int(input("número: "))
+            escolha = rotulos[n - 1]
+        except (ValueError, IndexError, EOFError):
+            return None
+    return escolha.split()[0] if escolha else None
+
+
+def main(argv):
+    segundos = 0.0
+    args = []
+    i = 0
+    while i < len(argv):
+        if argv[i] in ("--segundos", "-s") and i + 1 < len(argv):
+            segundos = float(argv[i + 1])
+            i += 2
+        else:
+            args.append(argv[i])
+            i += 1
+    itens = disponiveis()
+    if args and args[0] in ("--lista", "-l"):
+        for n, d, _ in itens:
+            print(d)
+        return
+    nome = args[0] if args else menu(itens)
+    if not nome:
+        return
+    mapa = {n: cmd for n, _, cmd in itens}
+    if nome not in mapa:
+        sys.exit(f"brinquedos: '{nome}' não existe ou não está instalado. Veja: brinquedos --lista")
+    if mapa[nome] is None:
+        roda(nome, segundos)
+    else:
+        os.execvp(mapa[nome][0], mapa[nome])
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
