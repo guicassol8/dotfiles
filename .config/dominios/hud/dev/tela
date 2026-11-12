@@ -1,0 +1,39 @@
+#!/bin/sh
+# tela: sobe um Quickshell de teste, espera, fotografa o eDP-1 e derruba.
+# Varios agentes dividem a mesma tela: tudo aqui roda debaixo de uma trava (flock).
+#
+#   tela <pasta-ou-shell.qml> <saida.png> [segundos=3] [quadros=1] [intervalo=0.6]
+#
+# Com quadros > 1 grava saida-1.png, saida-2.png... (para conferir animacao).
+# RECORTE=LxA+X+Y recorta cada foto (coordenadas dentro da tela de 1920x1080).
+# O log do Quickshell fica em <saida>.log; avisos e erros de QML saem no stdout.
+# Qualquer outro teste que apareca na tela deve usar a mesma trava:
+#   flock "$XDG_RUNTIME_DIR/dominios-tela.lock" sh -c '...'
+set -eu
+[ $# -ge 2 ] || { sed -n '2,12p' "$0"; exit 2; }
+alvo=$1; saida=$2; seg=${3:-3}; quadros=${4:-1}; intervalo=${5:-0.6}
+trava="${XDG_RUNTIME_DIR:-/tmp}/dominios-tela.lock"
+pausa="${XDG_RUNTIME_DIR:-/tmp}/dominios-tela.pausa"
+if [ -e "$pausa" ]; then
+    echo "tela: TESTE VISUAL PAUSADO pelo orquestrador (o dono esta usando o computador)." >&2
+    echo "tela: nao contorne. Siga com o que nao precisa de tela; o orquestrador avisa quando liberar." >&2
+    exit 75
+fi
+exec 9>"$trava"
+flock -w 300 9 || { echo "tela: trava ocupada ha mais de 5 min" >&2; exit 1; }
+base=${saida%.png}; log="$base.log"
+qs -p "$alvo" --allow-duplicate >"$log" 2>&1 &
+pid=$!
+trap 'kill $pid 2>/dev/null || true' EXIT INT TERM
+sleep "$seg"
+if ! kill -0 $pid 2>/dev/null; then echo "tela: o Quickshell morreu antes da foto (veja $log)" >&2; fi
+foto() {
+    grim -o eDP-1 "$1" || { echo "tela: grim falhou" >&2; return 1; }
+    [ -z "${RECORTE:-}" ] || magick "$1" -crop "$RECORTE" +repage "$1"
+}
+if [ "$quadros" -le 1 ]; then foto "$saida"; else
+    i=1; while [ $i -le "$quadros" ]; do foto "$base-$i.png"; i=$((i+1)); sleep "$intervalo"; done
+fi
+echo "PSS_kB=$(awk '/^Pss:/{print $2}' /proc/$pid/smaps_rollup 2>/dev/null || echo ?)"
+kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true
+grep -E 'WARN|ERROR|rror:|qml:' "$log" | grep -v -E 'Gtk-WARNING|portal|gtk.css' | cut -c1-240 | head -30 || true

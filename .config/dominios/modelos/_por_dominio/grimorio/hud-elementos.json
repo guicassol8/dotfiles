@@ -1,0 +1,8 @@
+{
+    "fogo": "{{elementos.fogo}}",
+    "agua": "{{elementos.agua}}",
+    "terra": "{{elementos.terra}}",
+    "vento": "{{elementos.vento}}",
+    "eletricidade": "{{elementos.eletricidade}}",
+    "mana-pura": "{{elementos.mana-pura}}"
+  }

@@ -1,0 +1,732 @@
+{
+ "elemento-fogo": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Fire03.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "elemento-agua": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Water03.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "elemento-terra": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Earth02.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "elemento-vento": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Wind01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "elemento-eletricidade": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Thunder01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "elemento-mana": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Magic02.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "coracao": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Holy01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "mana": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Water07.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "folego": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Thunder03.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "estrela-xp": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Light01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "moeda": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_GoldCoin.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "escudo": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/E_Gold01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "espada": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/W_Sword001.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "grimorio": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/W_Book01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "pergaminho": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Scroll.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "pocao": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/P_Pink05.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "cristal": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Crystal01.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "chave": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Key03.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "mapa": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Map.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "relogio": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Clock.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "tocha": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/I_Torch02.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "sol": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Light02.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "lua": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Light03.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "neve": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Ice02.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "vento": {
+  "arquivo": "fontes-livres/496-pixel-art-icons-for-medievalfantasy-rpg/S_Wind02.png",
+  "x": 0,
+  "y": 0,
+  "l": 34,
+  "a": 34,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "MedicineStorm (pacote 496 icons, gnola14)"
+ },
+ "ampulheta": {
+  "arquivo": "fontes-livres/rpg-ui-icons/hourglass.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "NaranjaIncognita"
+ },
+ "caveira": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/curse_skull.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "bandeira": {
+  "arquivo": "fontes-livres/flags-0/flags.png",
+  "x": 0,
+  "y": 16,
+  "l": 16,
+  "a": 16,
+  "quadros": 4,
+  "licenca": "CC0",
+  "autor": "desconhecido (OGA)"
+ },
+ "vela": {
+  "arquivo": "fontes-livres/animated-candle/2023-12-13_candle.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 6,
+  "licenca": "CC0",
+  "autor": "tchevin"
+ },
+ "nuvem": {
+  "arquivo": "fontes-livres/weather-icons/cloudyWeather.png",
+  "x": 0,
+  "y": 0,
+  "l": 100,
+  "a": 100,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "farcodev"
+ },
+ "chuva": {
+  "arquivo": "fontes-livres/weather-icons/rainyWeather.png",
+  "x": 0,
+  "y": 0,
+  "l": 100,
+  "a": 100,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "farcodev"
+ },
+ "tempestade": {
+  "arquivo": "fontes-livres/weather-icons/stormyWeather.png",
+  "x": 0,
+  "y": 0,
+  "l": 100,
+  "a": 100,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "farcodev"
+ },
+ "familiar-espirito": {
+  "arquivo": "fontes-livres/mini-fantasy-sprites/mini_fantasy_sprites_oga_ver_alpha.png",
+  "x": 384,
+  "y": 224,
+  "l": 32,
+  "a": 32,
+  "quadros": 4,
+  "licenca": "CC0",
+  "autor": "Chappi"
+ },
+ "familiar-gato": {
+  "arquivo": "fontes-livres/32x32-pixel-art-creatures-volume-3/creatures3_.png",
+  "x": 224,
+  "y": 32,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "paulb"
+ },
+ "familiar-slime": {
+  "arquivo": "fontes-livres/32x32-pixel-art-creatures-volume-3/creatures3_.png",
+  "x": 96,
+  "y": 128,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "paulb"
+ },
+ "familiar-espirito-verde": {
+  "arquivo": "fontes-livres/32x32-pixel-art-creatures-volume-3/creatures3_.png",
+  "x": 256,
+  "y": 32,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "paulb"
+ },
+ "familiar-dragao": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/dragons/mottled_dragon.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "familiar-corvo": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/raven.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "mago": {
+  "arquivo": "fontes-livres/mini-fantasy-sprites/mini_fantasy_sprites_oga_ver_alpha.png",
+  "x": 64,
+  "y": 128,
+  "l": 32,
+  "a": 32,
+  "quadros": 4,
+  "licenca": "CC0",
+  "autor": "Chappi"
+ },
+ "monstro-slime": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/amorphous/ooze_new.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "monstro-morcego": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/animals/giant_bat.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "monstro-esqueleto": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/skeletons/skeleton_humanoid_small_new.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "monstro-golem": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/nonliving/stone_golem.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "monstro-fantasma": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/ghost_new.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "monstro-chefe": {
+  "arquivo": "fontes-livres/dungeon-crawl-32x32-tiles/Dungeon Crawl Stone Soup Full/monster/undead/lich.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Dungeon Crawl Stone Soup (bart/MedicineStorm/vlzvl)"
+ },
+ "monstro-orc": {
+  "arquivo": "fontes-livres/mini-fantasy-sprites/mini_fantasy_sprites_oga_ver_alpha.png",
+  "x": 448,
+  "y": 32,
+  "l": 64,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "CC0",
+  "autor": "Chappi"
+ },
+ "conjurador-96": {
+  "arquivo": "conjurador-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Ideogram Transparent Sprites"
+ },
+ "conjurador-48": {
+  "arquivo": "conjurador-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Ideogram Transparent Sprites"
+ },
+ "conjurador-32": {
+  "arquivo": "conjurador-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Ideogram Transparent Sprites"
+ },
+ "familiar-coruja-48": {
+  "arquivo": "familiar-coruja-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-coruja-32": {
+  "arquivo": "familiar-coruja-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-gato-48": {
+  "arquivo": "familiar-gato-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-gato-32": {
+  "arquivo": "familiar-gato-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-raposa-48": {
+  "arquivo": "familiar-raposa-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-raposa-32": {
+  "arquivo": "familiar-raposa-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-slime-48": {
+  "arquivo": "familiar-slime-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-slime-32": {
+  "arquivo": "familiar-slime-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-fada-48": {
+  "arquivo": "familiar-fada-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-fada-32": {
+  "arquivo": "familiar-fada-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-dragao-48": {
+  "arquivo": "familiar-dragao-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-dragao-32": {
+  "arquivo": "familiar-dragao-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-corvo-48": {
+  "arquivo": "familiar-corvo-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-corvo-32": {
+  "arquivo": "familiar-corvo-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-chama-48": {
+  "arquivo": "familiar-chama-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-chama-32": {
+  "arquivo": "familiar-chama-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "emblema-fogo-64": {
+  "arquivo": "emblema-fogo-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "emblema-agua-64": {
+  "arquivo": "emblema-agua-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "emblema-terra-64": {
+  "arquivo": "emblema-terra-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "emblema-vento-64": {
+  "arquivo": "emblema-vento-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "emblema-eletricidade-64": {
+  "arquivo": "emblema-eletricidade-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "emblema-mana-pura-64": {
+  "arquivo": "emblema-mana-pura-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "familiar-espirito-mana-48": {
+  "arquivo": "familiar-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Flux Sprites"
+ },
+ "familiar-espirito-mana-32": {
+  "arquivo": "familiar-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Flux Sprites"
+ }
+}

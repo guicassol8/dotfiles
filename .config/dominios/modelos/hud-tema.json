@@ -1,0 +1,47 @@
+{
+  "dominio": {{dominio|json}},
+  "nome": {{nome|json}},
+  "cor": {
+    "fundo": "{{cor.fundo}}",
+    "superficie": "{{cor.superficie}}",
+    "superficie2": "{{cor.superficie2}}",
+    "contorno": "{{cor.contorno}}",
+    "texto": "{{cor.texto}}",
+    "texto_suave": "{{cor.texto_suave}}",
+    "primaria": "{{cor.primaria}}",
+    "sobre_primaria": "{{cor.sobre_primaria}}",
+    "secundaria": "{{cor.secundaria}}",
+    "terciaria": "{{cor.terciaria}}",
+    "erro": "{{cor.erro}}",
+    "aviso": "{{cor.aviso}}",
+    "sobre_secundaria": "{{cor.sobre_secundaria}}",
+    "sobre_terciaria": "{{cor.sobre_terciaria}}",
+    "sobre_erro": "{{cor.sobre_erro}}",
+    "ok": "{{cor.ok}}"
+  },
+  "elementos": {{>hud-elementos.json}},
+  "fonte": {
+    "ui": {{fonte.ui|json}},
+    "destaque": {{fonte.destaque|json}},
+    "mono": {{fonte.mono|json}},
+    "icones": "Symbols Nerd Font"
+  },
+  "forma": {
+    "raio": {{forma.raio}},
+    "borda": {{forma.borda}},
+    "vaos": {{forma.vaos}}
+  },
+  "texto": {
+    "rotulo": {{rotulo|json}},
+    "lema": {{lema|json}},
+    "expansao": {{expansao|json}},
+    "bloqueio": {{bloqueio|json}},
+    "notificacao": {{notificacao|json}},
+    "missoes_titulo": {{missoes_titulo|json}},
+    "ficha_titulo": {{ficha.titulo|json}},
+    "ficha_usuario": {{ficha.usuario|json}},
+    "ficha_cpu": {{ficha.cpu|json}},
+    "ficha_memoria": {{ficha.memoria|json}},
+    "ficha_bateria": {{ficha.bateria|json}}
+  }
+}

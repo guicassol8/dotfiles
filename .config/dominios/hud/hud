@@ -1,0 +1,153 @@
+#!/bin/sh
+# hud: liga, desliga e fala com o HUD do grimorio (um processo so do Quickshell),
+# supervisionado pelo systemd do usuario (dominios-hud.service).
+#
+#   hud ligar       sobe o HUD pelo servico (nao faz nada se ja estiver de pe)
+#   hud desligar    derruba (o servico nao reergue)
+#   hud reiniciar   derruba e sobe de novo
+#   hud estado      desligado, ou o estado em JSON, PSS do qs, memoria do servico e CPU
+#   hud alternar    abre ou fecha o grimorio por cima das janelas (o atalho Mod+G)
+#   hud abrir | fechar
+#   hud abertura    toca a abertura (titulo "Despertar da Mana") agora, no HUD que ja roda
+#   hud dizer "<titulo>" "<texto>"    fala na caixa de dialogo
+#   hud paisagem [ligar|desligar]     so o cenario, sem widgets (sem argumento: alterna; Mod+Shift+G)
+#   hud contemplar  o protetor de tela agora (qualquer entrada desfaz)
+#   hud ocioso | voltou    usados pelo ocioso do Noctalia ([grimorio.contemplacao] no dominios.toml)
+#   hud sessao      no login: liga se o dominio ativo quer HUD (so o grimorio), senao desliga
+#   hud log         ultimas linhas do registro do servico
+#
+# O servico reinicia sozinho se o qs cair (com espera crescente) e tem teto de memoria
+# no cgroup: MemoryHigh 260M (o kernel aperta), MemoryMax 330M (o kernel mata e o
+# servico reergue). O arquivo da unidade e reescrito a cada `ligar`.
+set -eu
+aqui=$(cd "$(dirname "$0")" && pwd)
+unidade=dominios-hud.service
+arquivo="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/$unidade"
+estado="${XDG_STATE_HOME:-$HOME/.local/state}/dominios"
+
+# dominios que querem o HUD (o resto desliga)
+QUEREM="grimorio"
+
+escreve_unidade() {
+    mkdir -p "$(dirname "$arquivo")"
+    novo=$(cat <<EOF
+# Gerado por $aqui/hud (hud ligar). Nao edite: edite o script.
+[Unit]
+Description=HUD do grimorio (Quickshell)
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=600
+StartLimitBurst=12
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/qs -p $aqui --no-color
+Restart=always
+RestartSec=2
+RestartSteps=6
+RestartMaxDelaySec=60
+# teto de memoria do HUD inteiro (qs + nucleo + cava)
+MemoryHigh=260M
+MemoryMax=330M
+MemorySwapMax=128M
+OOMPolicy=kill
+Nice=5
+# ambiente enxuto: cada linha foi medida (hud/LEIA.md, secao Memoria)
+Environment=QT_QPA_PLATFORM=wayland
+Environment=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+# sem tema de plataforma: o padrao (gtk3) carrega o GTK inteiro
+Environment=QT_QPA_PLATFORMTHEME=
+# o qs usa jemalloc: uma arena, sem cache por thread, devolve memoria livre na hora
+Environment=MALLOC_CONF=narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0
+# um laco de desenho so, na thread principal (10 fps nao precisa de thread de render)
+Environment=QSG_RENDER_LOOP=basic
+# Vulkan (radv) no lugar do OpenGL (radeonsi + LLVM): menos memoria e menos CPU
+Environment=QSG_RHI_BACKEND=vulkan
+# so as fontes que o HUD usa
+Environment=FONTCONFIG_FILE=$aqui/fontes/fonts.conf
+EOF
+)
+    if [ ! -f "$arquivo" ] || [ "$(cat "$arquivo")" != "$novo" ]; then
+        printf '%s\n' "$novo" >"$arquivo"
+        systemctl --user daemon-reload
+    fi
+}
+
+ativo() { systemctl --user is-active --quiet "$unidade"; }
+pid() { systemctl --user show -p MainPID --value "$unidade" 2>/dev/null | grep -v '^0$' || true; }
+chama() {
+    ativo || { echo "hud: desligado (rode: hud ligar)" >&2; exit 1; }
+    qs ipc -p "$aqui" call hud "$@"
+}
+
+# CPU do processo em % de um nucleo, medida por 1 s
+cpu() {
+    p=$1
+    a=$(awk '{print $14+$15}' "/proc/$p/stat" 2>/dev/null) || { echo "?"; return; }
+    sleep 1
+    b=$(awk '{print $14+$15}' "/proc/$p/stat" 2>/dev/null) || { echo "?"; return; }
+    echo "$a $b $(getconf CLK_TCK)" | awk '{printf "%.1f", ($2-$1)*100/$3}'
+}
+
+case ${1:-} in
+    ligar)
+        escreve_unidade
+        systemctl --user reset-failed "$unidade" 2>/dev/null || true
+        if ativo; then echo "hud: ja esta ligado"; exit 0; fi
+        systemctl --user start --no-block "$unidade"
+        echo "hud: ligado" ;;
+    desligar)
+        if ! ativo; then echo "hud: ja esta desligado"; exit 0; fi
+        systemctl --user stop "$unidade"
+        echo "hud: desligado" ;;
+    reiniciar)
+        escreve_unidade
+        systemctl --user reset-failed "$unidade" 2>/dev/null || true
+        systemctl --user restart --no-block "$unidade"
+        echo "hud: reiniciado" ;;
+    estado)
+        p=$(pid)
+        if [ -z "$p" ]; then
+            echo "desligado ($(systemctl --user is-active "$unidade" 2>/dev/null || true))"
+            exit 0
+        fi
+        qs ipc -p "$aqui" call hud estado 2>/dev/null || echo "(o qs ainda nao responde)"
+        pss=$(awk '/^Pss:/{printf "%.1f", $2/1024}' "/proc/$p/smaps_rollup" 2>/dev/null || echo ?)
+        cg=$(systemctl --user show -p MemoryCurrent --value "$unidade" | awk '{ if ($1 ~ /^[0-9]+$/) printf "%.1f", $1/1048576; else print "?" }')
+        echo "pid=$p  PSS do qs: ${pss} MB  servico (qs+nucleo): ${cg} MB de 330  CPU: $(cpu "$p")% de um nucleo" ;;
+    alternar|abrir|fechar)
+        # fora do grimorio o HUD esta desligado: o atalho nao faz nada, calado
+        ativo || exit 0
+        chama "$1" ;;
+    abertura) chama abertura ;;
+    paisagem)
+        modo=${2:-alternar}
+        case $modo in ligar|desligar|alternar) ;; *) echo "uso: hud paisagem [ligar|desligar]" >&2; exit 2 ;; esac
+        # fora do grimorio o HUD esta desligado: o atalho (Mod+Shift+G) nao faz nada
+        ativo || { echo "hud: desligado (rode: hud ligar)" >&2; exit 0; }
+        echo "hud: paisagem $(chama paisagem "$modo")" ;;
+    contemplar)
+        r=$(chama contemplar)
+        [ -z "$r" ] && echo "hud: contemplando (mexa no mouse ou aperte uma tecla para voltar)" || { echo "hud: nao entrou: $r" >&2; exit 1; } ;;
+    ocioso)
+        # chamado pelo Noctalia depois de N minutos parado: calado, e so no grimorio
+        ativo || exit 0
+        [ "$(cat "$estado/atual" 2>/dev/null)" = grimorio ] || exit 0
+        qs ipc -p "$aqui" call hud ocioso >/dev/null 2>&1 || true ;;
+    voltou)
+        ativo || exit 0
+        qs ipc -p "$aqui" call hud voltou >/dev/null 2>&1 || true ;;
+    dizer) [ $# -ge 3 ] || { echo "uso: hud dizer \"<titulo>\" \"<texto>\"" >&2; exit 2; }; chama dizer "$2" "$3" ;;
+    sessao)
+        d=$(cat "$estado/atual" 2>/dev/null || true)
+        for q in $QUEREM; do
+            if [ "$d" = "$q" ]; then
+                # login: a abertura com a tela de titulo (so aqui; vale uma vez, por 2 min)
+                ativo || touch "${XDG_RUNTIME_DIR:-/tmp}/dominios-hud-abertura"
+                exec "$0" ligar
+            fi
+        done
+        exec "$0" desligar ;;
+    log) journalctl --user -u "$unidade" -n "${2:-40}" --no-pager ;;
+    *) sed -n '2,21p' "$0"; exit 2 ;;
+esac

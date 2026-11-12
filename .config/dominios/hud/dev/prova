@@ -1,0 +1,96 @@
+#!/bin/sh
+# prova: mostra UM widget sozinho, no tamanho da vaga dele, e fotografa.
+#
+#   prova <Widget | arquivo.qml> [saida.png] [opcoes]
+#
+#   <Widget>       nome de hud/widgets/<Widget>.qml, ou caminho de um .qml dentro de hud/
+#   --tamanho LxA  tamanho da peca (padrao: a vaga do widget em mesa.json, senao 420x300)
+#   --espera S     segundos antes da foto (padrao 2.5)
+#   --quadros N    N fotos seguidas (saida-1.png ...), para conferir animacao
+#   --intervalo S  segundos entre as fotos (padrao 0.4)
+#   --elemento E   fixa o elemento: fogo agua terra vento eletricidade mana-pura
+#   --fundo F      "cena" (padrao: faixas de cor atras, para julgar o vidro) ou uma cor (#17141D)
+#   --na-tela      fotografa na tela de verdade (overlay, fundo opaco, recorte automatico)
+#   --sem-tela     desenha fora da tela: nada aparece no monitor
+#
+# Sem --na-tela nem --sem-tela: vai na tela se o teste visual estiver liberado e
+# fora dela se estiver pausado. Fora da tela o desenho e por software: pixel art,
+# texto, sombra e vidro saem iguais; efeito de shader (ShaderEffect, MultiEffect)
+# NAO aparece e tem de ser conferido na tela depois.
+# A foto sai em ~/.cache/dominios-dev/prova/<Widget>.png se nao der o caminho.
+# Os dados sao os de verdade (`nucleo --uma-vez`, sem som). Para dados fingidos:
+#   HUD_NUCLEO='cat meu-teste.jsonl; cat >/dev/null' prova ...
+set -eu
+aqui=$(cd "$(dirname "$0")" && pwd); hud=$(dirname "$aqui")
+[ $# -ge 1 ] || { sed -n '2,22p' "$0"; exit 2; }
+alvo=$1; shift
+saida=""; tam=""; espera=2.5; quadros=1; intervalo=0.4; modo=""; fundo="cena"
+while [ $# -gt 0 ]; do
+    case $1 in
+        --tamanho) tam=$2; shift 2 ;;
+        --espera) espera=$2; shift 2 ;;
+        --quadros) quadros=$2; shift 2 ;;
+        --intervalo) intervalo=$2; shift 2 ;;
+        --elemento) export HUD_ELEMENTO=$2; shift 2 ;;
+        --fundo) fundo=$2; shift 2 ;;
+        --na-tela) modo=tela; shift ;;
+        --sem-tela) modo=fora; shift ;;
+        -*) echo "prova: opcao desconhecida $1" >&2; exit 2 ;;
+        *) saida=$1; shift ;;
+    esac
+done
+case $alvo in
+    /*) case $alvo in "$hud"/*) alvo=${alvo#"$hud"/} ;; *) echo "prova: o arquivo tem de estar dentro de $hud (o qs nao le fora da pasta do shell)" >&2; exit 2 ;; esac ;;
+esac
+nome=$(basename "$alvo" .qml)
+case $alvo in
+    *.qml) [ -f "$hud/$alvo" ] || { echo "prova: nao achei $hud/$alvo" >&2; exit 2; } ;;
+    *) [ -f "$hud/widgets/$alvo.qml" ] || { echo "prova: nao achei $hud/widgets/$alvo.qml" >&2; exit 2; } ;;
+esac
+if [ -z "$tam" ]; then
+    tam=$(python3 - "$hud/mesa.json" "$nome" <<'PY' 2>/dev/null || true
+import json, sys
+for v in json.load(open(sys.argv[1])).get("vagas", []):
+    if v.get("widget") == sys.argv[2]:
+        print(f"{v['largura']}x{v['altura']}"); break
+PY
+)
+    [ -n "$tam" ] || tam=420x300
+fi
+L=${tam%x*}; A=${tam#*x}
+[ -n "$saida" ] || { mkdir -p "$HOME/.cache/dominios-dev/prova"; saida="$HOME/.cache/dominios-dev/prova/$nome.png"; }
+pausa="${XDG_RUNTIME_DIR:-/tmp}/dominios-tela.pausa"
+[ -n "$modo" ] || { if [ -e "$pausa" ]; then modo=fora; else modo=tela; fi; }
+export HUD_PROVA=$alvo HUD_PROVA_L=$L HUD_PROVA_A=$A HUD_PROVA_FUNDO=$fundo
+# dados de verdade, sem som: o nucleo emite tudo uma vez e o `cat` segura o processo ate o qs sair
+: "${HUD_NUCLEO:=$(dirname "$hud")/bin/nucleo --uma-vez; cat >/dev/null}"; export HUD_NUCLEO
+: "${DOMINIOS_TEMA:=$HOME/.config/dominios/_build/grimorio/hud-tema.json}"; export DOMINIOS_TEMA
+
+if [ "$modo" = tela ]; then
+    x=$(( (1920 - L) / 2 - 30 )); y=$(( (1080 - A) / 2 - 30 ))
+    [ $x -ge 0 ] || x=0; [ $y -ge 0 ] || y=0
+    lr=$(( L + 60 )); ar=$(( A + 60 )); [ $lr -le 1920 ] || lr=1920; [ $ar -le 1080 ] || ar=1080
+    rm -f "$saida" "${saida%.png}"-[0-9]*.png
+    RECORTE="${lr}x${ar}+${x}+${y}" "$aqui/tela" "$hud/prova.qml" "$saida" "$espera" "$quadros" "$intervalo"
+    if [ "$quadros" -le 1 ] && [ ! -f "$saida" ]; then echo "prova: a foto nao saiu" >&2; exit 1; fi
+    echo "foto: $saida (na tela)"
+    exit 0
+fi
+
+# fora da tela: plataforma offscreen, sem ligacao nenhuma com o compositor.
+# --allow-duplicate: varias provas (e o HUD de verdade) podem rodar juntas. A foto velha
+# e apagada antes, para uma prova que falhou nao parecer sucesso.
+log="${saida%.png}.log"
+rm -f "$saida" "${saida%.png}"-[0-9]*.png
+ms=$(python3 -c "print(int(float('$espera') * 1000))")
+limite=$(python3 -c "print(int(float('$espera') + 0.5 * $quadros + 8))")
+env -u WAYLAND_DISPLAY -u DISPLAY -u XDG_CURRENT_DESKTOP QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=nenhum \
+    HUD_PROVA_SAIDA="$saida" HUD_PROVA_ESPERA="$ms" HUD_PROVA_QUADROS="$quadros" \
+    HUD_PROVA_INTERVALO="$(python3 -c "print(int(float('$intervalo') * 1000))")" \
+    timeout "$limite" qs -p "$hud/prova.qml" --allow-duplicate --no-color >"$log" 2>&1 || true
+grep -E 'WARN|ERROR|rror:|qml:' "$log" | grep -v -E 'built against|window masks|portal|path symlink' | cut -c1-240 | head -30 || true
+if [ "$quadros" -gt 1 ]; then
+    ls "${saida%.png}"-[0-9]*.png 2>/dev/null | sed 's/^/foto: /' | grep . || { echo "prova: as fotos nao sairam (veja $log)" >&2; exit 1; }
+else
+    [ -f "$saida" ] && echo "foto: $saida (fora da tela, sem efeito de shader)" || { echo "prova: a foto nao saiu (veja $log)" >&2; exit 1; }
+fi

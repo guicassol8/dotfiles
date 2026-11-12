@@ -1,0 +1,16 @@
+{
+  "tela": [1920, 1080],
+  "vagas": [
+    { "widget": "Relogio",    "x": 600,  "y": 54,  "largura": 720, "altura": 216 },
+    { "widget": "Ficha",      "x": 24,   "y": 54,  "largura": 456, "altura": 546 },
+    { "widget": "Oficios",    "x": 24,   "y": 618, "largura": 456, "altura": 258 },
+    { "widget": "Bardo",      "x": 24,   "y": 894, "largura": 456, "altura": 162 },
+    { "widget": "Familiares", "x": 1440, "y": 54,  "largura": 456, "altura": 258 },
+    { "widget": "Maquina",    "x": 1440, "y": 330, "largura": 456, "altura": 330 },
+    { "widget": "Cronica",    "x": 1440, "y": 678, "largura": 456, "altura": 198 },
+    { "widget": "Ceus",       "x": 1440, "y": 894, "largura": 456, "altura": 162 },
+    { "widget": "Elemento",   "x": 498,  "y": 846, "largura": 228, "altura": 210 },
+    { "widget": "Pagina",     "x": 744,  "y": 846, "largura": 432, "altura": 210 },
+    { "widget": "Mapa",       "x": 1194, "y": 846, "largura": 228, "altura": 210 }
+  ]
+}
