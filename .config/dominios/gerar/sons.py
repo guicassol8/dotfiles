@@ -149,6 +149,15 @@ def grimorio(p):
     em(b, sino(880.0, 0.9), 0.0, 0.7); em(b, sino(1174.7, 1.0), 0.14)
     finaliza(sala(b, 0.6, 0.28, 4500), p / "concluir.wav", fecha=0.3, largura=0.0009)
     finaliza(sala(sino(293.7, 1.0, ((1, 1.0), (1.414, 0.5), (2.76, 0.3))), 0.6, 0.3, 3000), p / "alerta.wav", fecha=0.3)
+    # trilha chiptune (janela, workspace, dialogo, xp, elementos...): ver sons_grimorio.py
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import sons_grimorio
+    sons_grimorio.gera(p / "chiptune")      # nunca escreve por cima dos de estudio
+    import subprocess                       # reaplica o pacote ativo (chiptune ou estudio)
+    ativo = (p / ".pacote").read_text().strip() if (p / ".pacote").exists() else "chiptune"
+    if ativo == "estudio" and not list((p / "estudio").glob("*.wav")):
+        ativo = "chiptune"
+    subprocess.run([str(RAIZ / "bin" / "som-pacote"), ativo], check=True)
 
 
 # -------------------------------------------------------------- SETOR 2814

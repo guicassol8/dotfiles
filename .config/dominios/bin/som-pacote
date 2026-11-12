@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Pacote de sons ativo do grimorio: chiptune (sintetizado) ou estudio (comprado e tratado).
+
+  som-pacote chiptune | estudio   copia o pacote para sons/grimorio/ e marca como ativo
+  som-pacote estado               mostra o ativo e quais sons vem de cada pacote
+
+sons/grimorio/chiptune/ guarda os originais sintetizados; sons/grimorio/estudio/ guarda os
+de estudio. O pacote estudio vale por cima do chiptune: o que nao tem versao de estudio
+continua chiptune. Os 4 sons antigos (notificar, expandir...) ficam sempre na raiz.
+"""
+import shutil
+import sys
+from pathlib import Path
+
+PASTA = Path(__file__).resolve().parent.parent / "sons" / "grimorio"
+MARCA = PASTA / ".pacote"
+
+
+def ativo():
+    try:
+        return MARCA.read_text().strip() or "chiptune"
+    except OSError:
+        return "chiptune"
+
+
+def lista(sub):
+    return sorted((PASTA / sub).glob("*.wav")) if (PASTA / sub).is_dir() else []
+
+
+def aplica(nome):
+    if nome == "estudio" and not lista("estudio"):
+        sys.exit("pacote estudio vazio: nada foi trocado")
+    fontes = lista("chiptune") + (lista("estudio") if nome == "estudio" else [])
+    for f in fontes:                       # estudio vem depois e sobrescreve
+        shutil.copyfile(f, PASTA / f.name)
+    MARCA.write_text(nome + "\n")
+    print("pacote ativo:", nome, f"({len(fontes)} arquivos copiados)")
+
+
+def estado():
+    est = {f.name for f in lista("estudio")}
+    chip = {f.name for f in lista("chiptune")}
+    print("ativo:", ativo())
+    print(f"chiptune: {len(chip)} sons; estudio: {len(est)} sons")
+    if est:
+        print("com versao de estudio:", ", ".join(sorted(n[:-4] for n in est)))
+    print("so chiptune:", ", ".join(sorted(n[:-4] for n in chip - est)) or "-")
+
+
+if __name__ == "__main__":
+    a = sys.argv[1] if len(sys.argv) > 1 else "estado"
+    if a in ("chiptune", "estudio"):
+        aplica(a)
+    elif a == "estado":
+        estado()
+    else:
+        sys.exit(__doc__)

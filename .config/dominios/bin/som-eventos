@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Sons de interface nos eventos do compositor (niri), com os sons do dominio ativo.
+
+  som-eventos                 daemon: le `niri msg --json event-stream` e toca
+  som-eventos --stdin         o mesmo, lendo o fluxo da entrada padrao (teste)
+  som-eventos tocar <nome> [--volume V] [--forcar]
+                              toca sons/<nome>.wav do dominio ativo (para outros componentes)
+
+Respeita `dominio som on|off` (estado/preferencias.json) e so toca se o dominio ativo
+(link ~/.config/dominios/atual) tiver o arquivo. Debounce: um som do mesmo tipo a cada
+120 ms e no maximo 3 tocando ao mesmo tempo.
+
+Configuracao opcional em ~/.config/dominios/som-eventos.json:
+  {"volume": 0.35, "volumes": {"workspace": 0.25}}
+Ambiente: SOM_EVENTOS_VOLUME troca o volume padrao; SOM_EVENTOS_TOCADOR=<arquivo> troca o
+pw-play por um registro nesse arquivo (linhas "nome volume"), para testes sem audio.
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "hud", "dados"))
+from som import daemon, toca  # noqa: E402  (a logica mora em hud/dados/som.py)
+
+
+def main(args):
+    if args and args[0] == "tocar":
+        nome = next((a for a in args[1:] if not a.startswith("--")), None)
+        if not nome:
+            sys.exit("uso: som-eventos tocar <nome> [--volume V] [--forcar]")
+        vol = None
+        if "--volume" in args:
+            try:
+                vol = float(args[args.index("--volume") + 1])
+            except (IndexError, ValueError):
+                sys.exit("--volume precisa de um numero")
+        ok = toca(nome, vol, forcar="--forcar" in args, debounce=False)
+        sys.exit(0 if ok else 1)
+    if args and args[0] in ("-h", "--help"):
+        print(__doc__)
+        return
+    try:
+        daemon("--stdin" in args)
+    except (KeyboardInterrupt, SystemExit):
+        pass
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
