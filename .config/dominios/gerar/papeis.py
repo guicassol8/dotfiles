@@ -9,6 +9,7 @@ quando ele existe; sem o repositorio, desenha o sigilo pela geometria do SVG.
 import math
 import random
 import subprocess
+import shutil
 import sys
 import tomllib
 from pathlib import Path
@@ -360,7 +361,7 @@ def grimorio():
     cor(ctx, c["texto_suave"], 0.45); ctx.set_line_width(1); ctx.rectangle(46.5, 46.5, W - 93, H - 93); ctx.stroke()
     t.sobre(surf)
     vinheta(t, 0.42, 1.3)
-    t.salva(SAIDA / "grimorio.png", grao=0.008)
+    t.salva(SAIDA / "grimorio-antigo.png", grao=0.008)   # o papel do dominio e a cena de titulo (ver capa)
 
 
 # --------------------------------------------------------------- SETOR 2814
@@ -577,11 +578,16 @@ RECORTES = {"sistema": (1267, 508, 400), "grimorio": (960, 404, 172),
             "setor2814": (960, 410, 225), "maldicao": (1290, 553, 475)}
 # Expoente da mascara: 2 = circulo; maior = quadrado de cantos redondos (emblemas largos)
 MASCARA = {"setor2814": 6}
+# Papel cujo arquivo-fonte nao e <dominio>.png: o grimorio usa a cena de titulo (arte do HUD,
+# papeis/grimorio-titulo.png e -desfocado). A arte procedural antiga continua saindo como
+# grimorio-antigo.png, e dela saem logo, braille e grimorio-antigo-desfocado.png.
+ARTE_BASE = {"grimorio": "grimorio-antigo"}
+CAPA = {"grimorio": "grimorio-titulo"}
 
 
 def derivados(nome):
     """<dominio>-logo.png (emblema com borda suave), logo.txt (braille truecolor) e -desfocado.png."""
-    base = Image.open(SAIDA / f"{nome}.png").convert("RGB")
+    base = Image.open(SAIDA / f"{ARTE_BASE.get(nome, nome)}.png").convert("RGB")
     esc = base.size[0] / 1920
     if nome not in RECORTES:            # dominio sem emblema (Neutro): so a versao desfocada
         _desfocado(nome, base, esc)
@@ -645,7 +651,20 @@ def derivados(nome):
     destino.mkdir(parents=True, exist_ok=True)
     (destino / "logo.txt").write_text("\n".join(linhas) + "\n")
 
-    _desfocado(nome, base, esc)
+    _desfocado(ARTE_BASE.get(nome, nome), base, esc)
+    capa(nome)
+
+
+def capa(nome):
+    """<dominio>.png e -desfocado.png copiados da cena de CAPA, quando o dominio tem uma."""
+    fonte = CAPA.get(nome)
+    if not fonte or not (SAIDA / f"{fonte}.png").exists():
+        return
+    for suf in ("", "-desfocado"):
+        origem = SAIDA / f"{fonte}{suf}.png"
+        if origem.exists():
+            shutil.copyfile(origem, SAIDA / f"{nome}{suf}.png")
+    print("capa de", nome, "<-", fonte)
 
 
 def _desfocado(nome, base, esc):

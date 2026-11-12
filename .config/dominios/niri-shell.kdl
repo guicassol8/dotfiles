@@ -21,6 +21,9 @@ binds {
     XF86MonBrightnessDown allow-when-locked=true { spawn-sh "~/.config/dominios/shell/ipc brilho-"; }
 }
 
+// HUD do grimorio: no login liga se o dominio ativo quiser (so o grimorio); servico do usuario
+spawn-sh-at-startup "~/.config/dominios/hud/hud sessao"
+
 // Janela de Configuracoes do Noctalia 5
 window-rule {
     match app-id="^dev\\.noctalia\\.Noctalia$"

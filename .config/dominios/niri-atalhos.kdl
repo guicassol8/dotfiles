@@ -8,6 +8,8 @@ binds {
     Mod+M             hotkey-overlay-title="Missões diárias" { spawn-sh "~/.config/dominios/shell/ipc missoes"; }
     Mod+A             hotkey-overlay-title="HUD de agentes" { spawn-sh "~/.config/dominios/shell/ipc agentes"; }
     Mod+N             hotkey-overlay-title="Modo apresentação: liga/desliga" { spawn-sh "~/.config/dominios/bin/dominio apresentar"; }
+    Mod+G             hotkey-overlay-title="Grimório: abrir e fechar" { spawn-sh "~/.config/dominios/hud/hud alternar"; }
+    Mod+Shift+G       hotkey-overlay-title="Grimório: só o cenário" { spawn-sh "~/.config/dominios/hud/hud paisagem"; }
 }
 
 // Paineis flutuantes dos Dominios (missoes, agentes, seletor reserva)

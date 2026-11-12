@@ -1,0 +1,24 @@
+#!/bin/sh
+# Moldura e animacoes de janela do grimorio seguem o elemento ativo: copia
+#   _build/grimorio/sessao/<elemento>/niri.kdl -> ~/.local/state/dominios/niri-elemento.kdl
+# (incluido no fim do niri.kdl do grimorio; o niri recarrega sozinho quando o arquivo muda).
+# $1 = elemento novo; sem argumento le elemento.json. Grava em qualquer dominio (fora do
+# grimorio o arquivo nao e incluido, entao nao custa nada) para nunca ficar velho.
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+estado="${XDG_STATE_HOME:-$HOME/.local/state}/dominios"
+el="${1:-$ELEMENTO}"
+if [ -z "$el" ]; then
+    el=$(sed -n 's/.*"elemento"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$estado/elemento.json" 2>/dev/null | head -1)
+fi
+case "$el" in fogo|agua|terra|vento|eletricidade|mana-pura) ;; *) el=mana-pura ;; esac
+origem="$raiz/_build/grimorio/sessao/$el/niri.kdl"
+destino="$estado/niri-elemento.kdl"
+[ -r "$origem" ] || exit 0
+cmp -s "$origem" "$destino" 2>/dev/null && exit 0
+mkdir -p "$estado" 2>/dev/null
+cp "$origem" "$destino.$$" 2>/dev/null && mv -f "$destino.$$" "$destino" || exit 0
+# no grimorio, garante a recarga (o niri ja vigia o include; isto cobre a primeira criacao)
+if [ "$(basename "$(readlink "$raiz/atual" 2>/dev/null)")" = grimorio ] && [ -n "$NIRI_SOCKET" ]; then
+    niri msg action load-config-file >/dev/null 2>&1
+fi
+exit 0

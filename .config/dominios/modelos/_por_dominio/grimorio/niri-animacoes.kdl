@@ -1,60 +1,54 @@
-    // Grimorio: a janela surge como tinta se espalhando no papel
+    // Grimorio: a janela se materializa de um mosaico de pixels que vai afinando
+    // (48, 24, 12, 6, 3 px: sempre na grade de 3), com faisca na cor do elemento
+    // em cada bloco que acende. So roda durante a animacao: parado, custo zero.
     window-open {
-        duration-ms 520
-        curve "ease-out-cubic"
+        duration-ms 460
+        curve "linear"
         custom-shader r"
             float g_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-            float g_ruido(vec2 p) {
-                vec2 i = floor(p); vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
-                return mix(mix(g_hash(i), g_hash(i + vec2(1.0, 0.0)), f.x),
-                           mix(g_hash(i + vec2(0.0, 1.0)), g_hash(i + vec2(1.0, 1.0)), f.x), f.y);
-            }
             vec4 open_color(vec3 coords_geo, vec3 size_geo) {
                 float p = niri_clamped_progress;
                 vec2 uv = coords_geo.xy;
                 if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
-                vec2 prop = vec2(size_geo.x / size_geo.y, 1.0);
-                float r = length((uv - 0.5) * prop) / length(prop * 0.5);
                 vec2 px = uv * size_geo.xy;
-                float n = g_ruido(px / 46.0 + niri_random_seed * 17.0) * 0.6 + g_ruido(px / 13.0) * 0.4;
-                float d = p * 1.45 - (r + (n - 0.5) * 0.34);
-                vec3 ct = niri_geo_to_tex * vec3(uv, 1.0);
-                vec4 cor = texture2D(niri_tex, ct.st) * smoothstep(0.0, 0.11, d);
-                vec3 mana = vec3({{cor.primaria|glsl}});
-                float aura = smoothstep(0.13, 0.0, abs(d - 0.04)) * (1.0 - p);
-                cor += vec4(mana, 1.0) * aura * 0.5;
-                return cor;
+                float bloco = p < 0.22 ? 48.0 : p < 0.42 ? 24.0 : p < 0.60 ? 12.0 : p < 0.76 ? 6.0 : p < 0.88 ? 3.0 : 0.0;
+                vec2 alvo = uv;
+                if (bloco > 0.0) alvo = (floor(px / bloco) + 0.5) * bloco / size_geo.xy;
+                // cada celula de 24 px acende num instante sorteado, todas ate 62%
+                float h = g_hash(floor(px / 24.0) + niri_random_seed * 91.0);
+                float t = p - h * 0.62;
+                if (t < 0.0) return vec4(0.0);
+                vec4 cor = texture2D(niri_tex, (niri_geo_to_tex * vec3(alvo, 1.0)).st);
+                vec3 elemento = vec3({{elemento.cor|glsl}});
+                float faisca = clamp(1.0 - t / 0.16, 0.0, 1.0);
+                cor.rgb = mix(cor.rgb, elemento * cor.a, faisca * 0.85);
+                float a = clamp(t / 0.06, 0.0, 1.0);
+                return cor * a;
             }
         "
     }
-    // ...e se recolhe das bordas para o centro
+    // ...e fecha se desfazendo: os blocos engrossam, piscam no elemento e somem
     window-close {
-        duration-ms 420
-        curve "ease-out-quad"
+        duration-ms 380
+        curve "linear"
         custom-shader r"
             float g_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-            float g_ruido(vec2 p) {
-                vec2 i = floor(p); vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
-                return mix(mix(g_hash(i), g_hash(i + vec2(1.0, 0.0)), f.x),
-                           mix(g_hash(i + vec2(0.0, 1.0)), g_hash(i + vec2(1.0, 1.0)), f.x), f.y);
-            }
             vec4 close_color(vec3 coords_geo, vec3 size_geo) {
                 float p = niri_clamped_progress;
                 vec2 uv = coords_geo.xy;
                 if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
-                vec2 prop = vec2(size_geo.x / size_geo.y, 1.0);
-                float r = length((uv - 0.5) * prop) / length(prop * 0.5);
                 vec2 px = uv * size_geo.xy;
-                float n = g_ruido(px / 46.0 + niri_random_seed * 17.0) * 0.6 + g_ruido(px / 13.0) * 0.4;
-                float d = (1.0 - p) * 1.45 - (r + (n - 0.5) * 0.34);
-                vec3 ct = niri_geo_to_tex * vec3(uv, 1.0);
-                vec4 cor = texture2D(niri_tex, ct.st) * smoothstep(0.0, 0.11, d);
-                vec3 mana = vec3({{cor.primaria|glsl}});
-                float aura = smoothstep(0.13, 0.0, abs(d - 0.04)) * p * (1.0 - p) * 4.0;
-                cor += vec4(mana, 1.0) * aura * 0.4;
-                return cor;
+                float bloco = p < 0.12 ? 3.0 : p < 0.28 ? 6.0 : p < 0.48 ? 12.0 : p < 0.70 ? 24.0 : 48.0;
+                vec2 alvo = (floor(px / bloco) + 0.5) * bloco / size_geo.xy;
+                float h = g_hash(floor(px / 24.0) + niri_random_seed * 91.0);
+                // a celula some entre 25% e 100%, piscando no elemento antes
+                float t = (0.25 + h * 0.75) - p;
+                if (t < 0.0) return vec4(0.0);
+                vec4 cor = texture2D(niri_tex, (niri_geo_to_tex * vec3(alvo, 1.0)).st);
+                vec3 elemento = vec3({{elemento.cor|glsl}});
+                float faisca = clamp(1.0 - t / 0.14, 0.0, 1.0);
+                cor.rgb = mix(cor.rgb, elemento * cor.a, faisca * 0.9);
+                return cor * clamp(t / 0.04, 0.0, 1.0);
             }
         "
     }

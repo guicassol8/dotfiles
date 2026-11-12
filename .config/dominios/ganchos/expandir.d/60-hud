@@ -1,0 +1,14 @@
+#!/bin/sh
+# HUD do grimorio: liga no dominio que quer HUD (so o grimorio) e desliga nos outros.
+# bin/dominio chama este gancho com o nome do dominio novo em $1 depois de cada troca.
+# O HUD e um servico do usuario (hud/hud); aqui so se pede, sem esperar.
+dominio="${1:-}"
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+hud="$raiz/hud/hud"
+[ -x "$hud" ] || exit 0
+case "$dominio" in
+    grimorio) "$hud" ligar >/dev/null 2>&1 ;;
+    "") exit 0 ;;
+    *) "$hud" desligar >/dev/null 2>&1 ;;
+esac
+exit 0

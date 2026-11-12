@@ -1,0 +1,108 @@
+// Dominio {{nome}}. Gerado por `dominio construir` a partir de modelos/_por_dominio/grimorio/niri.kdl
+// (substitui modelos/niri.kdl so no grimorio). Incluido no fim de ~/.config/niri/config.kdl.
+// Janela de RPG em pixel: canto de 1 pixel de arte, moldura dura de 3 px na cor do elemento
+// ativo, contorno escuro por fora e sombra dura deslocada. As cores do elemento vem do
+// arquivo de estado incluido no fim (ganchos/elemento.d/65-niri reescreve a cada troca).
+
+layout {
+    gaps {{forma.vaos}}
+
+    // moldura de dentro: o elemento ativo; nas outras janelas, o filete do grimorio
+    border {
+        on
+        width 3
+        active-color "{{elemento.cor}}"
+        inactive-color "{{cor.contorno}}"
+        urgent-color "{{cor.erro}}"
+    }
+
+    // contorno de fora, so na janela ativa: a borda dupla das janelas de menu de RPG
+    focus-ring {
+        on
+        width 3
+        active-color "#0B0910"
+        inactive-color "#0B0910"
+        urgent-color "#0B0910"
+    }
+
+    // sombra dura de 2 pixels de arte, sem desfoque (custo de um retangulo)
+    shadow {
+        on
+        softness 0
+        spread 0
+        offset x=6 y=6
+        draw-behind-window false
+        color "#07050BB8"
+        inactive-color "#07050B8C"
+    }
+
+    tab-indicator {
+        on
+        hide-when-single-tab
+        place-within-column
+        gap 6
+        width 6
+        length total-proportion=0.6
+        position "left"
+        gaps-between-tabs 3
+        corner-radius 0
+        active-color "{{elemento.cor}}"
+        inactive-color "{{cor.contorno}}"
+        urgent-color "{{cor.erro}}"
+    }
+
+    insert-hint {
+        on
+        color "{{elemento.cor|alfa:0.45}}"
+    }
+}
+
+overview {
+    backdrop-color "{{cor.fundo}}"
+    workspace-shadow {
+        softness 0
+        spread 0
+        offset x=9 y=9
+        color "#07050BA0"
+    }
+}
+
+// Desfoque de fundo (so atras do terminal, regra abaixo). Com xray, que e o padrao,
+// o niri desfoca o fundo uma vez e reaproveita enquanto ele nao muda.
+blur {
+    passes 3
+    offset 3
+    noise 0.03
+    saturation 1.25
+}
+
+window-rule {
+    geometry-corner-radius 3
+    clip-to-geometry true
+    draw-border-with-background false
+}
+
+// Terminais translucidos com o fundo desfocado atras
+window-rule {
+    match app-id="^kitty$"
+    match app-id="^Alacritty$"
+    match app-id="^dominios-prova$"   // janela de teste dos agentes (kitty --class dominios-prova)
+    background-effect {
+        blur true
+    }
+}
+
+// Cursor em pixel art (~/.local/share/icons/Grimorio). Nos outros dominios vale o de
+// ~/.config/niri/cfg/misc.kdl; GTK e Qt acompanham por ganchos/expandir.d/45-cursor.
+cursor {
+    xcursor-theme "Grimorio"
+    xcursor-size 32
+}
+
+animations {
+{{>niri-animacoes.kdl}}
+}
+
+// Cores e animacoes do elemento ativo (reescrito por ganchos/elemento.d/65-niri).
+// Opcional: sem o arquivo, ficam as cores de mana pura acima.
+include optional=true "{{casa}}/.local/state/dominios/niri-elemento.kdl"

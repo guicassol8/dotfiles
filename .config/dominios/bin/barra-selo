@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""barra-selo: selo do conjurador na barra do Noctalia (so o grimorio).
+
+Imprime o JSON do widget local/dominios:comando: elemento ativo com o glifo e a cor
+dele, e o nivel do jogador. Le ~/.local/state/dominios/elemento.json e jogador.json,
+sem rede e sem processo extra. O gancho ganchos/elemento.d/66-noctalia pede refresh
+a cada troca de elemento.
+"""
+import json
+import tomllib
+from pathlib import Path
+
+ESTADO = Path.home() / ".local/state/dominios"
+RAIZ = Path(__file__).resolve().parent.parent
+NOMES = {"fogo": "FOGO", "agua": "ÁGUA", "terra": "TERRA", "vento": "VENTO",
+         "eletricidade": "ELETRICIDADE", "mana-pura": "MANA PURA"}
+CAPITULOS = {"fogo": "a forja", "agua": "o santuário submerso", "terra": "as ruínas na floresta",
+             "vento": "os picos no céu", "eletricidade": "a torre da tempestade",
+             "mana-pura": "a biblioteca arcana"}
+GLIFOS = {"fogo": "flame", "agua": "droplet", "terra": "mountain", "vento": "wind",
+          "eletricidade": "bolt", "mana-pura": "sparkles"}
+
+
+def le(nome):
+    try:
+        return json.loads((ESTADO / nome).read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def main():
+    e, j = le("elemento.json"), le("jogador.json")
+    el = e.get("elemento") if e.get("elemento") in NOMES else "mana-pura"
+    try:
+        cores = tomllib.loads((RAIZ / "dominios.toml").read_text())["grimorio"]["elementos"]
+    except (OSError, KeyError, ValueError):
+        cores = {}
+    texto = NOMES[el]
+    nivel = j.get("nivel")
+    if nivel is not None:
+        texto = f"NV {nivel}  {texto}"
+    dica = [f"Capítulo: {NOMES[el].capitalize() if el != 'mana-pura' else 'Mana pura'}, {CAPITULOS[el]}"]
+    if e.get("motivo"):
+        dica.append(e["motivo"])
+    if e.get("travado") and e.get("motivo") != "Fixado pelo conjurador.":
+        dica.append("Elemento travado à mão.")
+    if nivel is not None:
+        linha = f"{j.get('nome', 'Conjurador').title()}, nível {nivel}"
+        if j.get("rank"):
+            linha += f", rank {j['rank']}"
+        dica.append(linha)
+        if j.get("xp") is not None and j.get("xp_proximo"):
+            dica.append(f"Experiência: {j['xp']} de {j['xp_proximo']}")
+    dica.append("Clique: abre o grimório (Mod+G)")
+    print(json.dumps({"texto": texto, "texto_curto": str(nivel or ""), "dica": "\n".join(dica),
+                      "glifo": GLIFOS[el], "cor": cores.get(el, "primary")}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

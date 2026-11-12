@@ -1,37 +1,56 @@
-# Grimorio: faixa flutuante no topo, canto suave, relogio em Cinzel
+# Grimorio: faixa de menu de RPG no topo, alinhada as colunas do HUD (x 24 a 1896, termina
+# em y 48; os paineis do HUD comecam em 54). Canto de 1 pixel de arte, moldura de 3 px,
+# rotulos em Silkscreen a 24 px (3 x 8: cada pixel da fonte cai inteiro na grade de 3).
 [bar.default]
 position           = "top"
-thickness          = 38
-margin_edge        = 10
-margin_ends        = 16
-radius             = {{forma.raio}}
+thickness          = 39
+margin_edge        = 9
+margin_ends        = 24
+radius             = 3
 concave_edge_corners = false
-background_opacity = 0.90
-border             = "outline_variant"
-border_width       = 1.0
+background_opacity = 0.92
+border             = "{{cor.contorno|mistura:cor.primaria:0.35}}"
+border_width       = 3.0
 shadow             = true
-padding            = 18
-widget_spacing     = 12
-font_weight        = 500
+padding            = 12
+widget_spacing     = 15
+font_family        = "Silkscreen"
+scale              = 1.25          # icones de 20 px
+font_scale         = 1.3714286     # 14 x 1.25 x 1.3714 = 24 px de texto
+font_weight        = 400
 capsule            = false
-start  = ["dominio", "workspaces", "active_window"]
+capsule_radius     = 0.0
+start  = ["dominio", "selo", "workspaces", "active_window"]
 center = ["clock"]
-end    = ["media", "missoes", "agentes", "tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center"]
+end    = ["media", "agentes", "tray", "network", "bluetooth", "volume", "battery", "notifications", "control-center"]
 
 [widget.clock]
 format         = "{:%H:%M}"
 tooltip_format = "{:%A, %d de %B de %Y}"
-font_family    = "{{fonte.destaque}}"
-font_weight    = 700
-color          = "on_surface"
 
+# Areas de trabalho em gemas quadradas, sem numero: a ativa e o elemento
 [widget.workspaces]
-style         = "regular"
-focused_color = "primary"
+style              = "regular"
+show_labels        = false
+capsule_radius     = 0.0
+pill_scale         = 0.8
+active_pill_size   = 2.0
+focused_color      = "primary"
+occupied_color     = "secondary"
+empty_color        = "outline_variant"
 
-[notification]
-position = "top_right"
+# Titulo da janela em fonte lisa (texto corrido le melhor fora do pixel)
+[widget.active_window]
+font_family = "{{fonte.ui}}"
+font_scale  = 0.6667   # ~16 px
+font_weight = 500
+max_length  = 420
 
-[desktop_widgets]
-enabled      = true
-widget_order = []
+[widget.network]
+show_label = false
+
+[widget.bluetooth]
+show_label = false
+
+[widget.notifications]
+hide_when_no_unread = true

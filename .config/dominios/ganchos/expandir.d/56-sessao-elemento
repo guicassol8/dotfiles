@@ -1,0 +1,7 @@
+#!/bin/sh
+# Ao entrar no grimorio, poe moldura do niri e paleta do Noctalia no elemento atual.
+# (Os ganchos de elemento saem calados ou nao custam nada fora do grimorio.)
+[ "$1" = grimorio ] || exit 0
+d="$(dirname "$0")/../elemento.d"
+"$d/65-niri"
+exec "$d/66-noctalia"

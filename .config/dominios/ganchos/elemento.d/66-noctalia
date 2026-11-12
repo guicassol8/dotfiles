@@ -1,0 +1,29 @@
+#!/bin/sh
+# Paleta do Noctalia no grimorio segue o elemento ativo: aponta a paleta dominio-grimorio
+# (~/.config/noctalia/palettes/dominio-grimorio.json) para
+#   _build/grimorio/sessao/<elemento>/noctalia-paleta.json
+# e, com o grimorio ativo, recarrega o Noctalia e o indicador da barra.
+# Nao usa `color-scheme-set`: o nome da paleta nao muda, entao o settings.toml do Noctalia
+# nao e regravado (e os widgets de mesa e bloqueio copiados la nao voltam).
+# $1 = elemento novo; sem argumento le elemento.json.
+raiz=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")
+estado="${XDG_STATE_HOME:-$HOME/.local/state}/dominios"
+pal_dir="${XDG_CONFIG_HOME:-$HOME/.config}/noctalia/palettes"
+el="${1:-$ELEMENTO}"
+if [ -z "$el" ]; then
+    el=$(sed -n 's/.*"elemento"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$estado/elemento.json" 2>/dev/null | head -1)
+fi
+case "$el" in fogo|agua|terra|vento|eletricidade|mana-pura) ;; *) el=mana-pura ;; esac
+origem="$raiz/_build/grimorio/sessao/$el/noctalia-paleta.json"
+link="$pal_dir/dominio-grimorio.json"
+[ -r "$origem" ] && [ -d "$pal_dir" ] || exit 0
+mudou=0
+if [ "$(readlink "$link" 2>/dev/null)" != "$origem" ]; then
+    ln -sfn "$origem" "$link" 2>/dev/null && mudou=1
+fi
+[ "$(basename "$(readlink "$raiz/atual" 2>/dev/null)")" = grimorio ] || exit 0
+command -v noctalia >/dev/null 2>&1 || exit 0
+noctalia msg status >/dev/null 2>&1 || exit 0
+[ "$mudou" = 1 ] && noctalia msg config-reload >/dev/null 2>&1
+noctalia msg plugin local/dominios:comando all refresh >/dev/null 2>&1
+exit 0

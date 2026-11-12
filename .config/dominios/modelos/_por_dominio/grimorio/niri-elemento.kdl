@@ -1,0 +1,18 @@
+// Elemento {{elemento.nome}}. Gerado por gerar/sessao_elemento.py (nao edite).
+// ganchos/elemento.d/65-niri copia para ~/.local/state/dominios/niri-elemento.kdl,
+// que o niri.kdl do grimorio inclui no fim.
+layout {
+    border {
+        active-color "{{elemento.cor}}"
+    }
+    tab-indicator {
+        active-color "{{elemento.cor}}"
+    }
+    insert-hint {
+        color "{{elemento.cor|alfa:0.45}}"
+    }
+}
+
+animations {
+{{>niri-animacoes.kdl}}
+}

@@ -1,0 +1,170 @@
+# Dominio {{nome}} no Noctalia 5. Gerado por `dominio construir` a partir de
+# modelos/_por_dominio/grimorio/noctalia.toml, que substitui o modelo geral so no grimorio.
+# Barra limpa em fonte de pixel (o HUD ja mostra oficios, familiares, clima e maquina na
+# mesa), destaque no elemento ativo (a paleta dominio-grimorio aponta para a do elemento:
+# ganchos/elemento.d/66-noctalia), cena de titulo no papel e na tela de bloqueio.
+
+[theme]
+mode           = "dark"
+source         = "custom"
+custom_palette = "dominio-{{dominio}}"
+
+[shell]
+font_family = "{{fonte.ui}}"
+corner_radius_scale = {{>noctalia-raio-escala}}
+
+[shell.panel]
+border_color = "primary"
+border_width = 2.0
+
+# Botao do dominio: um grimorio em pixel art (10x10 x3). Clique abre o seletor, direito vai ao proximo
+[widget.dominio]
+type    = "custom_button"
+glyph   = "{{glifo_shell}}"
+custom_image = "{{raiz}}/papeis/grimorio-icone-barra.png"
+custom_image_colorize = false
+scale   = 1.5          # x1.25 da barra: imagem de 30 px, 1 para 1
+tooltip = "{{nome}}: Expansão de Domínio (Mod+X)"
+
+[widget.dominio.actions]
+left  = "exec ~/.config/dominios/bin/dominio menu"
+right = "exec ~/.config/dominios/bin/dominio proximo"
+
+# Selo do conjurador: nivel e elemento ativo, na cor do elemento. Clique abre o grimorio por cima
+[widget.selo]
+type          = "local/dominios:comando"
+command       = "~/.config/dominios/bin/barra-selo"
+interval      = 60
+glyph         = "sparkles"
+click_command = "~/.config/dominios/hud/hud alternar"
+right_command = "~/.config/dominios/bin/dominio menu"
+
+# Agentes: a mesa do HUD ja mostra os familiares; aqui so aparece com a memoria em
+# aviso ou critica (e continua disparando o alerta)
+[widget.agentes]
+type            = "local/dominios:comando"
+command         = '~/.config/dominios/bin/agentes widget --json --alertar | jq -c "if .classe == \"ok\" then .texto = \"\" else . end"'
+interval        = 15
+glyph           = "robot"
+hide_when_empty = true
+click_command   = "noctalia msg panel-toggle local/dominios:agentes"
+right_command   = "~/.config/dominios/bin/agentes painel"
+
+# Midia so aparece quando tem algo tocando
+[widget.media]
+hide_when_no_media = true
+max_length         = 200
+
+{{>noctalia-barra.toml}}
+
+# ------------------------------------------------------------ notificacoes
+[notification]
+position           = "top_right"
+offset_x           = 24
+offset_y           = 9
+width              = 384
+background_opacity = 0.96
+border             = true
+border_color       = "primary"
+border_width       = 3
+
+# ------------------------------------------------------------ ocioso: contemplacao do HUD
+# Depois de [grimorio.contemplacao].minutos parado, o HUD sobe so com o cenario vivo
+# (`hud ocioso`); qualquer entrada desfaz (`hud voltou`). Respeita os inibidores (video,
+# chamada, cafeina). Sem a tinta de aviso antes do comando: o proprio cenario faz a entrada
+# (vale para o ocioso inteiro do grimorio; bloqueio e tela desligada seguem em 10-dominios.toml).
+[idle]
+pre_action_fade_seconds = 0
+
+[idle.behavior.contemplacao]
+enabled        = {{contemplacao.ligada|minusculo}}
+timeout        = {{contemplacao.minutos|vezes:60}}
+action         = "command"
+command        = "{{raiz}}/hud/hud ocioso"
+resume_command = "{{raiz}}/hud/hud voltou"
+
+# ------------------------------------------------------------ tela de bloqueio
+# A cena de titulo nitida (o livro sobre o pedestal), com relogio e lema em pixel por cima
+[lockscreen]
+wallpaper      = "{{raiz}}/papeis/{{dominio}}.png"
+blur_intensity = 0.0
+tint_intensity = 0.10
+
+[lockscreen_widgets]
+enabled      = true
+widget_order = ["dominio_relogio", "dominio_dia", "dominio_lema", "dominio_selado", "lockscreen-login-box@eDP-1"]
+
+[lockscreen_widgets.widget.dominio_relogio]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 96.0
+box_width  = 360.0
+box_height = 126.0
+
+[lockscreen_widgets.widget.dominio_relogio.settings]
+format      = "{:%H:%M}"
+center_text = true
+color       = "on_surface"
+font_family = "Jersey 25"
+background  = false
+
+[lockscreen_widgets.widget.dominio_dia]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 222.0
+box_width  = 600.0
+box_height = 36.0
+
+[lockscreen_widgets.widget.dominio_dia.settings]
+format      = "{:%A, %d de %B}"
+center_text = true
+color       = "primary"
+font_family = "Silkscreen"
+background  = false
+
+# Selo em gotico sob a hora; lema no alto, entre a data e o livro (embaixo ficam o pedestal e a caixa de senha).
+# E um relogio sem campo de hora: assim fica numa linha so e centralizado (o label quebra cedo).
+[lockscreen_widgets.widget.dominio_lema]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 264.0
+box_width  = 1200.0
+box_height = 27.0
+
+[lockscreen_widgets.widget.dominio_lema.settings]
+format      = "{{lema}}"
+center_text = true
+color       = "on_surface"
+font_family = "Silkscreen"
+background  = false
+
+[lockscreen_widgets.widget.dominio_selado]
+type   = "clock"
+output = "eDP-1"
+cx     = 960.0
+cy     = 174.0
+box_width  = 900.0
+box_height = 45.0
+
+[lockscreen_widgets.widget.dominio_selado.settings]
+format      = "{{bloqueio}}"
+center_text = true
+color       = "on_surface"
+font_family = "Jacquard 24"
+background  = false
+
+[lockscreen_widgets.widget."lockscreen-login-box@eDP-1"]
+type   = "login_box"
+output = "eDP-1"
+cx     = 960.0
+cy     = 990.0
+
+[lockscreen_widgets.widget."lockscreen-login-box@eDP-1".settings]
+layout             = "compact"
+background_color   = "surface_container"
+background_opacity = 0.92
+background_radius  = 3.0
+input_radius       = 0.0

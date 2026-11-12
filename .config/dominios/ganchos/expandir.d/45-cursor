@@ -1,0 +1,18 @@
+#!/bin/sh
+# Cursor dos apps GTK/Qt (gsettings) acompanha o dominio. O do niri vem do niri.kdl do
+# dominio: o grimorio declara o tema Grimorio (pixel art, ~/.local/share/icons/Grimorio);
+# os outros herdam o de ~/.config/niri/cfg/misc.kdl, que e o padrao abaixo.
+# Apps que usam o cursor-shape do Wayland ja seguem o niri; os demais leem o gsettings
+# (os ja abertos so trocam ao reabrir). $1 = dominio novo.
+PADRAO_TEMA=capitaine-cursors
+PADRAO_TAMANHO=24
+case "$1" in
+    grimorio) tema=Grimorio; tamanho=32 ;;
+    "") exit 0 ;;
+    *) tema=$PADRAO_TEMA; tamanho=$PADRAO_TAMANHO ;;
+esac
+command -v gsettings >/dev/null 2>&1 || exit 0
+s=org.gnome.desktop.interface
+[ "$(gsettings get $s cursor-theme 2>/dev/null)" = "'$tema'" ] || gsettings set $s cursor-theme "$tema" 2>/dev/null
+[ "$(gsettings get $s cursor-size 2>/dev/null)" = "$tamanho" ] || gsettings set $s cursor-size "$tamanho" 2>/dev/null
+exit 0
