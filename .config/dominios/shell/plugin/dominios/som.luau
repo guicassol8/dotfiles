@@ -1,5 +1,6 @@
 --!nonstrict
--- Servico: quando uma notificacao chega pelo D-Bus, toca o som do dominio ativo.
+-- Servico: quando uma notificacao chega pelo D-Bus, toca o som do dominio ativo e,
+-- se o dono estiver longe (contemplacao ou tela apagada), acorda a tela (bin/acordar-tela).
 -- Quem decide se toca e o `dominio tocar` (fica calado com musica tocando ou com
 -- `dominio som off`). Notificacoes do proprio app "Domínios" ja tem som e sao puladas.
 local aguardandoApp = false
@@ -15,6 +16,8 @@ local function linha(l)
       aguardandoApp = false
       if app ~= "Domínios" then
         noctalia.runAsync("$HOME/.config/dominios/bin/dominio tocar notificar")
+        -- dono longe (contemplacao ou tela apagada): acorda a tela para ver o aviso
+        noctalia.runAsync("$HOME/.config/dominios/bin/acordar-tela '" .. string.gsub(app, "'", "") .. "'")
       end
     end
   end

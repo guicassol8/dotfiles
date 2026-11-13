@@ -65,6 +65,7 @@ Estado em 12/11 de manhã, pra tu saber o que foi visto de verdade:
 | Abrir o grimório por cima das janelas (só no domínio `grimorio`) | `Mod+G` ou `hud alternar`. `Esc` fecha |
 | Esconder os widgets e ver só o cenário (liga e desliga, fica guardado) | `Mod+Shift+G` ou `hud paisagem` (`ligar`, `desligar`) |
 | Protetor de tela: o cenário sozinho depois de 3 min parado, na tomada; qualquer tecla volta | Sozinho. Testar na hora: `hud contemplar`. Minutos e liga/desliga: `[grimorio.contemplacao]` no `dominios.toml`, depois `dominio construir grimorio` |
+| Notificação com o dono longe (Claude pedindo resposta, WhatsApp...): a tela acorda sozinha | Sozinho, pelo plugin do Noctalia (`bin/acordar-tela`). Fica quieto no modo apresentação. Registro em `~/.local/state/dominios/acordar-tela.log` |
 | Ver o elemento ativo e o porquê | `elemento` |
 | Travar, soltar, passar o elemento | `elemento travar fogo`, `elemento soltar`, `elemento proximo` |
 | Ver a tua ficha (nível, XP, atributos) | `jogador` |

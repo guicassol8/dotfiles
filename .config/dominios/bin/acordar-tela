@@ -1,0 +1,21 @@
+#!/bin/sh
+# acordar-tela [app]: chamado pelo plugin do Noctalia a cada notificacao que chega.
+# Se o dono esta longe (contemplacao do HUD na tela, ou monitor apagado pelo ocioso),
+# acorda a tela para a notificacao aparecer; com o dono presente nao faz nada visivel.
+# Fica quieto no modo apresentacao (neutro: Nao Perturbe ligado).
+# Registro curto em ~/.local/state/dominios/acordar-tela.log.
+estado="$HOME/.local/state/dominios"
+[ "$(cat "$estado/atual" 2>/dev/null)" = neutro ] && exit 0
+hud="$HOME/.config/dominios/hud/hud"
+acordou=""
+if "$hud" estado 2>/dev/null | head -1 | grep -q '"contemplando":true'; then
+    "$hud" voltou
+    acordou="contemplacao"
+fi
+# monitor apagado pelo ocioso (se um dia o screen-off for ligado): liga de volta
+niri msg action power-on-monitors >/dev/null 2>&1 || true
+if [ -n "$acordou" ]; then
+    printf '%s acordou (%s) por notificacao de %s\n' "$(date '+%F %T')" "$acordou" "${1:-?}" >> "$estado/acordar-tela.log"
+    tail -n 50 "$estado/acordar-tela.log" > "$estado/acordar-tela.log.tmp" && mv "$estado/acordar-tela.log.tmp" "$estado/acordar-tela.log"
+fi
+exit 0
