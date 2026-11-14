@@ -7,8 +7,8 @@ import QtQuick
 //
 // Cada fala: texto em maquina de escrever, seta piscando quando termina, e passa
 // para a proxima sozinha (ou no clique). tipo: "info", "recompensa", "perigo",
-// "elemento". retrato: "conjurador", "familiar", "grimorio", "elemento-<nome>" ou
-// qualquer nome de sprite do acervo.
+// "elemento". retrato: "conjurador", "familiar", "grimorio", "elemento-<nome>" (o
+// busto do heroi do elemento) ou qualquer nome de sprite do acervo.
 Item {
     id: dialogo
 
@@ -85,11 +85,14 @@ Item {
         id: rosto
         readonly property string r: dialogo.atual && dialogo.atual.retrato ? dialogo.atual.retrato : "grimorio"
         visible: dialogo.falando && caixa.abertura >= 1
-        // elemento-<nome>: o medalhao do elemento (64 px de arte, 1:1)
-        readonly property bool emblema: r.startsWith("elemento-") && Tema.sprite("emblema-" + r.slice(9) + "-64") !== null
+        // elemento-<nome>: quem fala e o heroi do elemento (busto de 96 px, 1:1 como o medalhao);
+        // sem a arte dele, o medalhao do elemento (64 px de arte, 1:1)
+        readonly property bool heroi: r.startsWith("elemento-") && Tema.temHeroi(r.slice(9))
+        readonly property bool emblema: !heroi && r.startsWith("elemento-") && Tema.sprite("emblema-" + r.slice(9) + "-64") !== null
         fonte: r === "conjurador" ? "conjurador-32" : r === "familiar" ? "familiar-coruja-32"
+             : heroi ? "heroi-" + r.slice(9) + "-busto-96"
              : emblema ? "emblema-" + r.slice(9) + "-64" : r
-        ponto: emblema ? 1 : 0
+        ponto: (emblema || heroi) ? 1 : 0
         fps: 4
         y: parent.height - height
     }

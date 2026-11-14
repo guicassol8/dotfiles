@@ -76,6 +76,22 @@ def retrato():
             return
 
 
+def herois():
+    """Corpo inteiro de cada heroi (hud/sprites/heroi-<elemento>-128.png) ampliado por vizinho
+    mais proximo, para a ficha do terminal: papeis/grimorio-heroi-<elemento>-x<fator>.png.
+    x3 (384 px) tem a altura da ficha; x2 (256 px) e para janela estreita. O kitty mostra o
+    arquivo no tamanho nativo (sem c/r), entao cada pixel de arte vira fator x fator pixels de tela."""
+    for el in T["elementos"]:
+        fonte = RAIZ / "hud/sprites" / f"heroi-{el}-128.png"
+        if not fonte.exists():
+            continue
+        im = Image.open(fonte).convert("RGBA")
+        for esc in (2, 3):
+            saida = RAIZ / "papeis" / f"grimorio-heroi-{el}-x{esc}.png"
+            im.resize((im.width * esc, im.height * esc), Image.NEAREST).save(saida)
+    print(RAIZ / "papeis" / "grimorio-heroi-*-x{2,3}.png")
+
+
 def icone_barra():
     """Grimorio fechado de 10x10 pixels de arte, x3 (30 px): botao do dominio na barra."""
     desenho = [
@@ -108,4 +124,5 @@ def icone_barra():
 
 main()
 retrato()
+herois()
 icone_barra()

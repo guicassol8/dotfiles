@@ -100,15 +100,27 @@ end
 function __dominio_saudacao_propria
     set -l cfg ~/.config/dominios/atual/fastfetch.jsonc
     set -l json ~/.local/state/dominios/elemento.json
+    set -l el
     if test -r $json
         read -z -l ej < $json
-        set -l el (string match -rg '"elemento"\s*:\s*"([^"]*)"' -- $ej)
+        set el (string match -rg '"elemento"\s*:\s*"([^"]*)"' -- $ej)
         test -r ~/.config/dominios/atual/terminal/$el/fastfetch.jsonc; and set cfg ~/.config/dominios/atual/terminal/$el/fastfetch.jsonc
+    end
+    # heroi do elemento ativo, de corpo inteiro (x3 tem a altura da ficha; x2 se a janela for estreita);
+    # o kitty o mostra no tamanho nativo, entao o aumento e inteiro e nitido. Sem a arte: o encapuzado.
+    set -l heroi
+    if test -n "$el"
+        set -l esc 3
+        test "$COLUMNS" -lt 125 2>/dev/null; and set esc 2
+        set heroi ~/.config/dominios/papeis/grimorio-heroi-$el-x$esc.png
+        test -r $heroi; or set heroi
     end
     set -l img ~/.config/dominios/papeis/grimorio-retrato.png
     test -r $img; or set img ~/.config/dominios/papeis/grimorio-emblema-pixel.png
     test -r $img; or set img ~/.config/dominios/atual/logo.png
-    if test "$TERM" = xterm-kitty; and test -r $img
+    if test "$TERM" = xterm-kitty; and test -n "$heroi"
+        fastfetch -c $cfg --logo-type kitty-direct --logo $heroi
+    else if test "$TERM" = xterm-kitty; and test -r $img
         fastfetch -c $cfg --logo-type kitty-direct --logo $img --logo-width 30 --logo-height 15
     else
         fastfetch -c $cfg

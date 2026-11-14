@@ -728,5 +728,305 @@
   "quadros": 1,
   "licenca": "gerado",
   "autor": "Rialto/Flux Sprites"
+ },
+ "heroi-fogo-128": {
+  "arquivo": "heroi-fogo-128.png",
+  "x": 0,
+  "y": 0,
+  "l": 128,
+  "a": 128,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-fogo-64": {
+  "arquivo": "heroi-fogo-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-fogo-busto-96": {
+  "arquivo": "heroi-fogo-busto-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-fogo-busto-48": {
+  "arquivo": "heroi-fogo-busto-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-fogo-busto-32": {
+  "arquivo": "heroi-fogo-busto-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-agua-128": {
+  "arquivo": "heroi-agua-128.png",
+  "x": 0,
+  "y": 0,
+  "l": 128,
+  "a": 128,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-agua-64": {
+  "arquivo": "heroi-agua-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-agua-busto-96": {
+  "arquivo": "heroi-agua-busto-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-agua-busto-48": {
+  "arquivo": "heroi-agua-busto-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-agua-busto-32": {
+  "arquivo": "heroi-agua-busto-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-eletricidade-128": {
+  "arquivo": "heroi-eletricidade-128.png",
+  "x": 0,
+  "y": 0,
+  "l": 128,
+  "a": 128,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-eletricidade-64": {
+  "arquivo": "heroi-eletricidade-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-eletricidade-busto-96": {
+  "arquivo": "heroi-eletricidade-busto-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-eletricidade-busto-48": {
+  "arquivo": "heroi-eletricidade-busto-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-eletricidade-busto-32": {
+  "arquivo": "heroi-eletricidade-busto-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-terra-128": {
+  "arquivo": "heroi-terra-128.png",
+  "x": 0,
+  "y": 0,
+  "l": 128,
+  "a": 128,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-terra-64": {
+  "arquivo": "heroi-terra-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-terra-busto-96": {
+  "arquivo": "heroi-terra-busto-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-terra-busto-48": {
+  "arquivo": "heroi-terra-busto-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-terra-busto-32": {
+  "arquivo": "heroi-terra-busto-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-vento-128": {
+  "arquivo": "heroi-vento-128.png",
+  "x": 0,
+  "y": 0,
+  "l": 128,
+  "a": 128,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-vento-64": {
+  "arquivo": "heroi-vento-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-vento-busto-96": {
+  "arquivo": "heroi-vento-busto-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-vento-busto-48": {
+  "arquivo": "heroi-vento-busto-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-vento-busto-32": {
+  "arquivo": "heroi-vento-busto-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-mana-pura-128": {
+  "arquivo": "heroi-mana-pura-128.png",
+  "x": 0,
+  "y": 0,
+  "l": 128,
+  "a": 128,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-mana-pura-64": {
+  "arquivo": "heroi-mana-pura-64.png",
+  "x": 0,
+  "y": 0,
+  "l": 64,
+  "a": 64,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2"
+ },
+ "heroi-mana-pura-busto-96": {
+  "arquivo": "heroi-mana-pura-busto-96.png",
+  "x": 0,
+  "y": 0,
+  "l": 96,
+  "a": 96,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-mana-pura-busto-48": {
+  "arquivo": "heroi-mana-pura-busto-48.png",
+  "x": 0,
+  "y": 0,
+  "l": 48,
+  "a": 48,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
+ },
+ "heroi-mana-pura-busto-32": {
+  "arquivo": "heroi-mana-pura-busto-32.png",
+  "x": 0,
+  "y": 0,
+  "l": 32,
+  "a": 32,
+  "quadros": 1,
+  "licenca": "gerado",
+  "autor": "Rialto/Nano Banana 2 Edit"
  }
 }

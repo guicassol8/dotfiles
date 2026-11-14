@@ -1,7 +1,7 @@
 import QtQuick
 import qs.componentes
 
-// Elemento: os seis elementos em roda. O ativo fica aceso e maior; os outros ficam
+// Elemento: os seis elementos em roda, com o heroi do ativo no meio. O ativo fica aceso e maior; os outros ficam
 // apagados, com a intensidade do peso que tiveram como candidatos. Clique trava num
 // elemento; clique no ativo travado solta. Quando o ativo muda, a luz passa de um
 // para o outro (animacao por evento, nada roda parado). Dados: Nucleo.elemento.
@@ -64,7 +64,8 @@ Janela {
             }
         }
 
-        // medalhao do ativo no meio da roda (64 px de arte, 1:1), com a luz do elemento atras
+        // heroi do ativo no meio da roda (corpo de 64 px de arte, 1:1), com a luz do elemento atras;
+        // sem a arte dele, o medalhao do elemento
         Item {
             id: centro
             width: 66
@@ -80,7 +81,7 @@ Janela {
             }
             Figura {
                 id: medalhao
-                fonte: "emblema-" + elemento.ativo + "-64"
+                fonte: (Tema.temHeroi(elemento.ativo) ? "heroi-" : "emblema-") + elemento.ativo + "-64"
                 ponto: 1
                 anchors.centerIn: parent
                 onFonteChanged: { opacity = 0; surge.restart(); }

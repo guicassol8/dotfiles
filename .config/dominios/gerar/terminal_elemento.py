@@ -4,13 +4,14 @@
 Para cada um dos seis elementos grava em _build/grimorio/terminal/<elemento>/:
   kitty.conf       cores do kitty (incluido por ~/.local/state/dominios/kitty-elemento.conf)
   starship.toml    prompt com a cor, o glifo e a inicial do elemento
-  fastfetch.jsonc  ficha com a moldura e o capitulo do elemento
+  fastfetch.jsonc  ficha com a moldura, o capitulo e o titulo do heroi do elemento
   contraste.txt    razoes WCAG de cada cor sobre o fundo tingido
 
 Uso: terminal_elemento.py [--folha saida.png]
 Chamado tambem por gerar/construir.py ao construir o grimorio.
 """
 import colorsys
+import json
 import sys
 from pathlib import Path
 
@@ -114,12 +115,23 @@ def kitty_conf(el, p, t):
     return "\n".join(L) + "\n"
 
 
+def modulo_heroi(el, ctx):
+    """Linha da ficha com o titulo do heroi, na cor do elemento (vazio sem titulo em [grimorio.herois])."""
+    titulo = ctx["herois"].get(el)
+    if not titulo:
+        return ""
+    chave = f"{{#{c._filtra(ctx['cor']['moldura'], 'ansi', ctx)}}}┃ {{#{c._filtra(ctx['elemento']['cor'], 'ansi', ctx)}}}{ctx['ficha']['heroi']}"
+    cor = c._filtra(ctx["elemento"]["cor"], "ansi", ctx)
+    return json.dumps({"type": "custom", "key": chave, "format": f"{{#{cor}}}{{#1}}{titulo}{{#}}"}, ensure_ascii=False) + ","
+
+
 def contexto_elemento(el, p):
     ctx = c.contexto(DOMINIO)
     ctx["cor"] = {**ctx["cor"], "primaria": p["elemento"], "secundaria": p["claro"], "moldura": p["moldura"],
                   "fundo": p["fundo"]}
     ctx["elemento"] = {"cor": p["elemento"], "rgb": c._filtra(p["elemento"], "rgb", ctx), "nome": NOMES[el],
                        "glifo": GLIFOS[el], "inicial": NOMES[el][0]}
+    ctx["heroi"] = {"modulo": modulo_heroi(el, ctx)}
     return ctx
 
 
@@ -149,11 +161,11 @@ def gera():
         p = paleta(el)
         d = base / el
         d.mkdir(parents=True, exist_ok=True)
-        (d / "kitty.conf").write_text(kitty_conf(el, p, t))
+        c.grava(d / "kitty.conf", kitty_conf(el, p, t))
         ctx = contexto_elemento(el, p)
         for nome, arq in modelos.items():
-            (d / nome).write_text(c.renderiza(arq.read_text(), ctx, DOMINIO, str(arq)))
-        (d / "contraste.txt").write_text(relatorio(el, p, t))
+            c.grava(d / nome, c.renderiza(arq.read_text(), ctx, DOMINIO, str(arq)))
+        c.grava(d / "contraste.txt", relatorio(el, p, t))
         saida[el] = p
     return saida
 

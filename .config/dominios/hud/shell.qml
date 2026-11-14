@@ -18,6 +18,9 @@ import qs.casca
 //   qs -p ~/.config/dominios/hud                     sobe (ou use hud/hud ligar)
 //   qs ipc -p ~/.config/dominios/hud call hud alternar
 //
+// Troca de workspace: o letreiro da sala (casca/Letreiro.qml), numa superficie pequena
+// na camada Top que so existe enquanto aparece.
+//
 // Variaveis: HUD_DEV=1 (camada Overlay, fundo opaco, cena opaca, sem teclado: para foto;
 // nunca mostra nada do dono), HUD_DEV_ABERTO=1 (com HUD_DEV: nasce com o grimorio aberto),
 // HUD_MESA (outro mesa.json), HUD_NUCLEO (outro comando do nucleo, ou "nao"),
@@ -205,6 +208,105 @@ ShellRoot {
         }
     }
 
+    // ---- letreiro de sala: ao trocar de workspace, "Sala 2" e as janelas dela no meio da
+    // tela por uns 750 ms, por cima das janelas (casca/Letreiro.qml). Mora numa superficie
+    // propria na camada Top, que so existe durante o letreiro e 20 s depois (trocas em
+    // seguida reusam); parada nao custa nada. Nunca pega clique nem teclado.
+    // Desliga com `letreiro_sala = false` em [grimorio.hud] no dominios.toml.
+    readonly property bool letreiroLigado: Tema.ajustes.letreiro_sala !== false && !Hud.dev
+    readonly property var salaAtiva: {
+        const lista = Niri.workspaces ? Niri.workspaces.values : [];
+        for (let i = 0; i < lista.length; i++) {
+            const w = lista[i];
+            if (w.active && (!tela.screen || w.output === tela.screen.name))
+                return w;
+        }
+        return null;
+    }
+    property int _salaVista: -1
+    onSalaAtivaChanged: {
+        const w = salaAtiva;
+        if (!w || w.id === _salaVista)
+            return;
+        const antes = _salaVista;
+        _salaVista = w.id;
+        if (antes >= 0)                     // na subida do HUD nao mostra
+            mostrarLetreiro(false);
+    }
+    // Evento curto (como as animacoes do niri), entao vale tambem na bateria; a memoria
+    // apertada e a paisagem seguram. `naMao` (hud letreiro): mostra mesmo em paisagem.
+    // Devolve "" ou o motivo.
+    function mostrarLetreiro(naMao) {
+        const w = salaAtiva;
+        if (!letreiroLigado)
+            return "desligado em [grimorio.hud]";
+        if (!w)
+            return "sem workspace do niri";
+        if (Hud.recolhido || Hud.contemplando || Hud.aberto || Hud.abertura || Niri.overviewActive)
+            return "agora não (grimório aberto, contemplação, visão geral ou memória crítica)";
+        if (Hud.apertado)
+            return "memória apertada";
+        if (!naMao && Hud.paisagem)
+            return "modo paisagem";
+        const jan = Niri.windows ? Niri.windows.values : [];
+        let n = 0;
+        for (let i = 0; i < jan.length; i++)
+            if (jan[i].workspaceId === w.id)
+                n++;
+        _pedido = { sala: w.idx, nome: w.name || "", janelas: n };
+        soltaPlaca.restart();
+        if (placaSala.item)
+            _entrega();
+        else
+            placaSala.active = true;        // _entrega quando a superficie nascer
+        return "";
+    }
+    property var _pedido: null
+    function _entrega() {
+        const p = _pedido;
+        _pedido = null;
+        if (p && placaSala.item)
+            placaSala.item.letreiro.mostrar(p.sala, p.nome, p.janelas);
+    }
+    Connections {
+        target: Hud
+        function onPaisagemChanged() { if (placaSala.item) placaSala.item.letreiro.esconder(); }
+        function onContemplandoChanged() { if (placaSala.item) placaSala.item.letreiro.esconder(); }
+        function onAbriu() { if (placaSala.item) placaSala.item.letreiro.esconder(); }
+    }
+    LazyLoader {
+        id: placaSala
+        active: false
+        onItemChanged: if (item) raiz._entrega()
+        PanelWindow {
+            readonly property alias letreiro: letreiro
+            screen: tela.screen
+            visible: letreiro.ativo
+            anchors.top: true
+            margins.top: Tema.grade(540 - letreiro.implicitHeight / 2)
+            implicitWidth: letreiro.implicitWidth
+            implicitHeight: letreiro.implicitHeight
+            exclusionMode: ExclusionMode.Ignore
+            color: "transparent"
+            WlrLayershell.namespace: "dominios-hud-sala"
+            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            // sem clique: a mascara e sempre esta mesma regiao vazia, nunca trocada
+            mask: Region {}
+            Letreiro { id: letreiro; anchors.fill: parent }
+        }
+    }
+    Timer {
+        id: soltaPlaca
+        interval: 20000
+        onTriggered: {
+            if (placaSala.item && placaSala.item.letreiro.ativo)
+                restart();
+            else
+                placaSala.active = false;
+        }
+    }
+
     Component.onCompleted: {
         if (devAberto)
             Hud.abrir();
@@ -245,6 +347,8 @@ ShellRoot {
         // pelo ocioso do Noctalia: na bateria e com a memoria apertada nao entra
         function ocioso(): string { return Hud.contemplar(true); }
         function voltou(): void { Hud.despertar(); }
+        // o letreiro da sala atual agora (para conferir); devolve "" ou o motivo
+        function letreiro(): string { return raiz.mostrarLetreiro(true); }
         function estado(): string {
             return JSON.stringify({
                 aberto: Hud.aberto, por_cima: raiz.porCima, mesa_livre: Hud.mesaLivre, recolhido: Hud.recolhido,

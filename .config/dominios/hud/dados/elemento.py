@@ -48,6 +48,8 @@ import sys
 import time
 from datetime import datetime, timedelta
 
+import herois   # titulos dos seis herois ([grimorio.herois] no dominios.toml)
+
 CASA = os.path.expanduser("~")
 RAIZ = os.path.expanduser("~/.config/dominios")
 ESTADO_DIR = os.environ.get("DOMINIOS_ESTADO") or os.path.join(CASA, ".local/state/dominios")
@@ -672,6 +674,8 @@ def mostrar(o):
     e = o["elemento"]
     print()
     print(f"  {cor(e, '◆ ' + NOMES[e].upper(), True)}" + (suave("   [travado]") if o["travado"] else ""))
+    if herois.titulo(e):
+        print(f"  {cor(e, herois.titulo(e))}")
     print(f"  {o['motivo']}")
     ant = f", antes {NOMES[o['anterior']]}" if o["anterior"] else ""
     print(suave(f"  desde {o['desde'][11:16]}{ant}"))

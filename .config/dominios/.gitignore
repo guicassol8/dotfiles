@@ -27,9 +27,10 @@ missoes.toml
 hud/papel/*.qsb
 hud/papel/dev/*.qsb
 
-# Nova aba do Chrome: estado do momento (ofícios, ficha) e a cena do elemento, refeitos a cada troca
+# Nova aba do Chrome: estado do momento (ofícios, ficha) e a cena e o heroi do elemento, refeitos a cada troca
 chrome-nova-aba/estado.json
 chrome-nova-aba/cena.png
+chrome-nova-aba/heroi.png
 
 # Regras dos agentes: citam nome, idade, cidade e gostos do dono. Só na máquina.
 hud/dev/REGRAS.md

@@ -126,6 +126,7 @@ cpu = "FOCO"
 memoria = "MANA"
 disco = "GRIMÓRIO"
 bateria = "FÔLEGO"
+heroi = "GUARDIÃO"          # rotulo da linha com o titulo do heroi do elemento ativo
 
 [grimorio.cor]
 fundo = "#17141D"          # tema.escuro.base.pagina
@@ -180,6 +181,17 @@ vento = "#74C5B0"
 eletricidade = "#FFD43B"
 mana-pura = "#B4A5DD"
 
+# Os seis herois, um por elemento: o titulo de cada um. Fonte unica: o HUD (caixa de
+# dialogo, widget Elemento, abertura), a ficha do terminal, o comando `elemento` e a nova
+# aba do Chrome leem daqui. Renomeou? `dominio construir grimorio` (o resto acompanha).
+[grimorio.herois]
+fogo = "O Espadachim da Brasa"
+agua = "A Curandeira da Cúpula"
+eletricidade = "A Faísca Viva"
+terra = "O Bastião de Pedra"
+vento = "O Bardo Andarilho"
+mana-pura = "A Arquimaga da Biblioteca"
+
 [grimorio.fonte]
 ui = "Alegreya Sans"
 destaque = "Cinzel"
@@ -201,6 +213,12 @@ barra = "topo"
 [grimorio.contemplacao]
 ligada = true
 minutos = 3
+
+# HUD da mesa. letreiro_sala: ao trocar de workspace, o nome da sala ("SALA 2") e as
+# janelas dela aparecem no meio da tela por menos de 1 s, por cima das janelas, sem pegar
+# clique nem teclado. Depois de mudar: `dominio construir grimorio` (o HUD rele sozinho).
+[grimorio.hud]
+letreiro_sala = true
 
 # -------------------------------------------------------------- SETOR 2814
 # Tropa dos Lanternas Verdes. As cores ANSI sao o espectro emocional:

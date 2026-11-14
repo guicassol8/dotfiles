@@ -44,9 +44,18 @@ Não faça:
 | `Coletor` | roda comando e entrega JSON em `dados` | `comando`, `intervalo` (ms), `continuo`, `ativo`, `json`; `dados`, `erro`, `atualizado()` |
 | `Arquivo` | lê e observa um arquivo JSON | `caminho`, `dados`, `existe`, `atualizado()` |
 
-Singletons: `Tema` (cores, `px`, `elemento`, `destaque`, `corDe()`, `alfa(cor, a)`, `mistura(a, b, t)`, `grade(v)`, `textos`), `Nucleo` (canais; `som(nome)`, `oficio(id)`, `travarElemento(nome)`, `soltarElemento()`), `Hud` (`aberto`, `mesaLivre`, `visivel`, `animar`, `paisagem`, `contemplando`, `recolhido`, `apertado`, `naBateria`, `pulso`, `agora`, `hora`, `abertura`, `dizer({titulo, texto, retrato, tipo})`).
+Singletons: `Tema` (cores, `px`, `elemento`, `destaque`, `corDe()`, `alfa(cor, a)`, `mistura(a, b, t)`, `grade(v)`, `textos`, `ajustes` (de `[grimorio.hud]`)), `Nucleo` (canais; `som(nome)`, `oficio(id)`, `travarElemento(nome)`, `soltarElemento()`), `Hud` (`aberto`, `mesaLivre`, `visivel`, `animar`, `paisagem`, `contemplando`, `recolhido`, `apertado`, `naBateria`, `pulso`, `agora`, `hora`, `abertura`, `dizer({titulo, texto, retrato, tipo})`).
 
 `Hud.animar` é a chave de toda animação ociosa: falso com a mesa escondida, em paisagem, na contemplação, na bateria, com a memória apertada ou recolhida (o cenário usa `Hud.animarCena`, que segue andando em paisagem e na contemplação). Relógio: use `Hud.agora` (um `SystemClock` só para o HUD inteiro), não crie outro.
+
+### Os seis heróis
+
+Arte em `hud/sprites/` (`heroi-<elemento>-128.png` e `-64.png` de corpo inteiro; `-busto-96/48/32.png`), todos no `indice.json`. Os títulos vêm de `[grimorio.herois]` do `dominios.toml`, pelo `hud-tema.json`: `Tema.heroi("fogo")` devolve o título e `Tema.temHeroi("fogo")` diz se há título e arte (sem eles cada lugar cai no medalhão do elemento ou no encapuzado). O encapuzado (`conjurador-*`) segue sendo o dono.
+- **Dialogo**: a fala `retrato: "elemento-<nome>"` vira `heroi-<nome>-busto-96` com `ponto: 1` (1:1, como o medalhão) dentro do `Retrato` (miolo de 102 px); o título da fala é o do herói (`dados/dialogo.py` lê `dados/herois.py`, que relê o `dominios.toml`).
+- **Elemento**: o corpo de 64 px (`ponto: 1`) no lugar do medalhão, no meio da roda.
+- **Abertura do login** (`casca/Mesa.qml`): corpo de 64 px ao lado do "Capítulo".
+- **Nova aba**: `dados/nova_aba.py` copia o corpo de 128 px para `chrome-nova-aba/heroi.png` quando o elemento muda e põe `heroi` (título) no `estado.json`.
+- Testar a fala fora da tela: um `.qml` dentro de `hud/` com um `Dialogo { }` que chama `enfileirar({ id, titulo, texto, retrato: "elemento-fogo", tipo: "elemento" })` num `Timer` de 400 ms (o tema carrega assíncrono), e `hud/dev/prova dev/Teste.qml --tamanho 900x126 --sem-tela --elemento fogo`.
 
 ### Figura e Icone: de onde vem a imagem
 
@@ -139,6 +148,7 @@ A `Mesa` carrega o cenário atrás dos widgets e amarra: `elemento` (de `Nucleo.
 - **Abertura do login**: `hud sessao` deixa a marca `$XDG_RUNTIME_DIR/dominios-hud-abertura`; a casca a consome (vale uma vez, por 2 min). A cena `titulo` com "Despertar da Mana" e o capítulo do elemento, uns 3 s, com o som `login`; depois a cena varre para o lugar e os widgets desdobram em cascata. `hud ligar` comum e reinício por falha não têm abertura.
 - **Mod+G**: o grimório sobe por cima das janelas (camada Overlay, foco de teclado exclusivo: Esc fecha de primeira; clique no vazio fecha, clique no corpo de um widget não). O cenário entra junto com o véu, a 92% (as janelas ficam só como sombra), os widgets desdobram de novo em cascata e o nome "Grimório" aparece e some no meio. Fecha sozinho se a mesa ficar livre ou se a última janela fechar.
 - **Paisagem** (`hud paisagem`, Mod+Shift+G): widgets, diálogo, calma do shader (uniforme `mesa`) e o véu esmaecem em 500 ms; a máscara de entrada fica vazia; estado em `~/.local/state/dominios/hud.json`. **Contemplação** (`hud contemplar`, ou o ocioso do Noctalia chamando `hud ocioso`/`voltou`, de `[grimorio.contemplacao]`): a superfície sobe para Overlay com o cenário opaco, hora e lugar no canto, sem teclado nem clique; um `IdleMonitor` também desfaz na primeira entrada. Teste fora da tela: `HUD_PAISAGEM=1` ou `HUD_CONTEMPLAR=1` antes do `hud/dev/prova casca/Mesa.qml`.
+- **Letreiro de sala** (`casca/Letreiro.qml`): ao trocar de workspace, "Sala 2" (gótico, número em pixel na cor do elemento) e um baú por janela aparecem no meio da tela por ~750 ms: a faixa abre do centro numa varredura de pixels, segura e fecha. Mora numa segunda `PanelWindow` da casca, na camada Top, máscara vazia fixa e sem teclado, criada por `LazyLoader` só no letreiro e solta 20 s depois. Trocas em rajada só atualizam a placa aberta. Não aparece em paisagem, contemplação, visão geral do niri, grimório aberto nem com a memória apertada; na bateria aparece (evento curto, como as animações do niri). Ver na hora: `hud letreiro`. Desligar: `letreiro_sala = false` em `[grimorio.hud]`, depois `dominio construir grimorio`. Foto: `HUD_AMOSTRA_LETREIRO='{"sala": 2, "janelas": 3, "aberto": 1}' hud/dev/prova casca/Letreiro.qml --tamanho 612x180`.
 - **Testar a fusão das horas**: `PAPEL_ELEMENTO=terra PAPEL_HORA=12 PAPEL_HORA_PARA=18.3 PAPEL_HORA_EM=2 hud/dev/tela hud/papel/dev /tmp/f.png 2.5 4 2.2`.
 
 ## Economia
@@ -150,6 +160,7 @@ A `Mesa` carrega o cenário atrás dos widgets e amarra: `elemento` (de `Nucleo.
 | com música | + `cava` a 15 fps: ~3,6% (qs 2,3, cava 1,0, núcleo 0,4) |
 | paisagem ou contemplação | só o cenário a 10 fps; widgets e amostragem da máquina param |
 | na bateria | tudo congela num quadro (`Hud.naBateria`) |
+| troca de workspace | o letreiro: uma superfície de 612 x 180 por ~750 ms; parado, nenhuma (destruída 20 s depois) |
 | `Nucleo.pressao.nivel` "apertado" | idem (`Hud.apertado`) |
 | "crítico" | cenário e widgets descarregados, só um aviso pequeno (`Hud.recolhido`) |
 

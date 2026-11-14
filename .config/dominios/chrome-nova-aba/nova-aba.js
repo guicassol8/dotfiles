@@ -111,6 +111,7 @@ function grimorio() {
   }
   t("g-atualizado", quando);
   cena(elemento, e.atualizado || "");
+  heroi(elemento, e.heroi || "", e.atualizado || "");
   particulas(elemento);
   saudacao();
 }
@@ -128,6 +129,29 @@ function cena(elemento, versao) {
     img.src = urls[0];
   };
   tenta(["cena.png?v=" + encodeURIComponent(chave), "papel.png?d=grimorio"]);
+}
+
+// heroi do elemento ativo, de corpo inteiro num canto da cena (heroi.png e copiado junto da cena).
+// Sem titulo no estado ou sem a imagem, some (a pagina fica como era).
+let heroiAtual = "";
+function heroi(elemento, titulo, versao) {
+  const fig = el$("g-heroi"), img = el$("g-heroi-img");
+  if (!fig || !img) return;
+  const chave = elemento + "|" + titulo + "|" + versao;
+  if (chave === heroiAtual) return;
+  heroiAtual = chave;
+  if (!titulo) { fig.hidden = true; return; }
+  const novo = new Image();
+  novo.onload = () => {
+    img.src = novo.src;
+    el$("g-heroi-titulo").textContent = titulo;
+    fig.hidden = false;
+    fig.classList.remove("visivel");
+    void fig.offsetWidth;                     // reinicia a entrada a cada troca de heroi
+    fig.classList.add("visivel");
+  };
+  novo.onerror = () => { fig.hidden = true; };
+  novo.src = "heroi.png?v=" + encodeURIComponent(elemento + "|" + versao);
 }
 
 // poucas particulas, so CSS (transform e opacity); nada de laco em JS

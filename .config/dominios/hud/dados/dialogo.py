@@ -7,6 +7,8 @@ import itertools
 import re
 import time
 
+import herois
+
 REPETE_S = 5 * 60
 
 NOMES = {"fogo": "Fogo", "agua": "Água", "terra": "Terra", "vento": "Vento",
@@ -69,7 +71,8 @@ FALAS = {
     ]),
 }
 
-# elemento: titulo e texto vem do motor (motivo); so o titulo varia por elemento
+# elemento: o texto vem do motor (motivo) e quem fala e o heroi do elemento (titulo em
+# [grimorio.herois]); sem titulo la, cai nestes
 TITULO_ELEMENTO = {
     "fogo": "O Fogo desperta", "agua": "A Água se ergue", "terra": "A Terra responde",
     "vento": "O Vento muda", "eletricidade": "A tempestade chama", "mana-pura": "A mana se aquieta",
@@ -98,7 +101,7 @@ class Dialogos:
             motivo = campos.get("motivo") or "A mana muda de forma."
             if not self._livre(motivo, t):      # mesma fala em menos de 5 min: nao repete
                 return None
-            return self._monta(f"elemento-{e}", TITULO_ELEMENTO.get(e, NOMES.get(e, e)), motivo,
+            return self._monta(f"elemento-{e}", herois.titulo(e) or TITULO_ELEMENTO.get(e, NOMES.get(e, e)), motivo,
                                f"elemento-{e}", "elemento", f"elemento-{e}", t)
         titulo, tipo, retrato, som, textos = FALAS[evento]
         campos = {k: ("" if v is None else v) for k, v in campos.items()}

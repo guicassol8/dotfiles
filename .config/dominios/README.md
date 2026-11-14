@@ -65,6 +65,8 @@ Estado em 12/11 de manhã, pra tu saber o que foi visto de verdade:
 | Abrir o grimório por cima das janelas (só no domínio `grimorio`) | `Mod+G` ou `hud alternar`. `Esc` fecha |
 | Esconder os widgets e ver só o cenário (liga e desliga, fica guardado) | `Mod+Shift+G` ou `hud paisagem` (`ligar`, `desligar`) |
 | Protetor de tela: o cenário sozinho depois de 3 min parado, na tomada; qualquer tecla volta | Sozinho. Testar na hora: `hud contemplar`. Minutos e liga/desliga: `[grimorio.contemplacao]` no `dominios.toml`, depois `dominio construir grimorio` |
+| Letreiro da sala ao trocar de workspace ("Sala 2" e as janelas dela, some sozinho em menos de 1 s) | Sozinho. Ver agora: `hud letreiro`. Desligar: `letreiro_sala = false` em `[grimorio.hud]` no `dominios.toml`, depois `dominio construir grimorio` |
+| Ritmo da troca de workspace e de coluna (mola que assenta com um leve passo além) | `modelos/_por_dominio/grimorio/niri-animacoes.kdl`, depois `dominio construir grimorio` |
 | Notificação com o dono longe (Claude pedindo resposta, WhatsApp...): a tela acorda sozinha | Sozinho, pelo plugin do Noctalia (`bin/acordar-tela`). Fica quieto no modo apresentação. Registro em `~/.local/state/dominios/acordar-tela.log` |
 | Ver o elemento ativo e o porquê | `elemento` |
 | Travar, soltar, passar o elemento | `elemento travar fogo`, `elemento soltar`, `elemento proximo` |
@@ -114,6 +116,40 @@ com hora e máquina).
 - O tema do niri do grimório (cursor em pixel `Grimorio`, moldura na cor do elemento,
   janela que se materializa de um mosaico) vive em `modelos/_por_dominio/grimorio/niri.kdl`
   e `niri-animacoes.kdl`; o cursor é gerado por `gerar/cursor.py`.
+
+## Os Seis
+
+Cada elemento tem um herói, aventureiros do mesmo grupo em pixel art (arte e prompts em
+`hud/sprites/HEROIS.md`). O encapuzado (`conjurador-*`) continua sendo o dono: Ficha do
+Conjurador e tela de login. Os seis são os avatares dos elementos, e aparece o do elemento
+**ativo**:
+
+| Elemento | Herói |
+|---|---|
+| fogo | O Espadachim da Brasa |
+| água | A Curandeira da Cúpula |
+| eletricidade | A Faísca Viva |
+| terra | O Bastião de Pedra |
+| vento | O Bardo Andarilho |
+| mana pura | A Arquimaga da Biblioteca |
+
+Onde aparecem:
+
+- **Terminal**: a ficha do kitty mostra o corpo inteiro (ampliado 3x, ou 2x em janela com
+  menos de 125 colunas; vizinho mais próximo, tamanho nativo) e a linha **GUARDIÃO** com o
+  título, na cor do elemento. Sem a arte, volta o encapuzado. O comando `elemento` também
+  imprime o título.
+- **HUD**: a caixa de diálogo das falas de troca de elemento (busto, e o título da fala é o
+  do herói), o widget Elemento (o corpo no meio da roda) e, discreto, a abertura do login
+  ao lado do "Capítulo".
+- **Nova aba do Chrome**: o corpo inteiro no canto direito, com o título (`heroi.png` e
+  `estado.json`, gerados como a `cena.png`).
+
+Renomear: edite a tabela `[grimorio.herois]` no `dominios.toml` e rode
+`dominio construir grimorio`. O HUD, a ficha, o `elemento` e a nova aba leem só dali (o
+rótulo GUARDIÃO fica em `[grimorio.ficha]`, chave `heroi`). Arte nova: troque os
+`heroi-<elemento>-*.png` em `hud/sprites/` e rode `python3 gerar/emblema_pixel.py` (refaz as
+imagens da ficha em `papeis/`).
 
 ## A mesa e os widgets
 
@@ -187,8 +223,8 @@ que não tem versão de estúdio continua chiptune.
 ## Terminal
 
 No grimório o kitty, o prompt (starship) e a ficha da abertura (fastfetch) seguem o
-elemento ativo. A ficha tem a linha **CAPÍTULO** com o nome do elemento e o motivo, e as
-barras de vida, mana e XP (`bin/ficha-linha`). Os arquivos vivos ficam em
+elemento ativo. A ficha tem a linha **CAPÍTULO** com o nome do elemento e o motivo, a linha **GUARDIÃO** com o
+título do herói (ver "Os Seis") e as barras de vida, mana e XP (`bin/ficha-linha`). Os arquivos vivos ficam em
 `~/.local/state/dominios/` (`kitty-elemento.conf`, `starship-elemento.toml`) e são
 refeitos pelo gancho `elemento.d/60-terminal`.
 
@@ -214,8 +250,9 @@ lado esquerdo e modelo e contexto do direito.
 ## Nova aba do Chrome
 
 A nova aba mostra a cena do elemento ativo, a hora, os ofícios e a página do dia. O
-`bin/nova-aba-estado` escreve `chrome-nova-aba/estado.json` e `cena.png`, chamado pelos
-ganchos `50-nova-aba` (troca de elemento e de domínio). Esses dois arquivos são gerados e
+`bin/nova-aba-estado` escreve `chrome-nova-aba/estado.json`, `cena.png` e `heroi.png` (o herói do elemento, de
+corpo inteiro no canto direito, com o título), chamado pelos
+ganchos `50-nova-aba` (troca de elemento e de domínio). Esses arquivos são gerados e
 não vão pro repositório. A extensão continua a mesma: carregar uma vez (ver "Apps").
 
 ## Login e boot

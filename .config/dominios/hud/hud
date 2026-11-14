@@ -12,6 +12,7 @@
 #   hud dizer "<titulo>" "<texto>"    fala na caixa de dialogo
 #   hud paisagem [ligar|desligar]     so o cenario, sem widgets (sem argumento: alterna; Mod+Shift+G)
 #   hud contemplar  o protetor de tela agora (qualquer entrada desfaz)
+#   hud letreiro    mostra agora o letreiro da sala atual (o que aparece ao trocar de workspace)
 #   hud ocioso | voltou    usados pelo ocioso do Noctalia ([grimorio.contemplacao] no dominios.toml)
 #   hud sessao      no login: liga se o dominio ativo quer HUD (so o grimorio), senao desliga
 #   hud log         ultimas linhas do registro do servico
@@ -126,6 +127,9 @@ case ${1:-} in
         # fora do grimorio o HUD esta desligado: o atalho (Mod+Shift+G) nao faz nada
         ativo || { echo "hud: desligado (rode: hud ligar)" >&2; exit 0; }
         echo "hud: paisagem $(chama paisagem "$modo")" ;;
+    letreiro)
+        r=$(chama letreiro)
+        [ -z "$r" ] || { echo "hud: letreiro nao apareceu: $r" >&2; exit 1; } ;;
     contemplar)
         r=$(chama contemplar)
         [ -z "$r" ] && echo "hud: contemplando (mexa no mouse ou aperte uma tecla para voltar)" || { echo "hud: nao entrou: $r" >&2; exit 1; } ;;
@@ -149,5 +153,5 @@ case ${1:-} in
         done
         exec "$0" desligar ;;
     log) journalctl --user -u "$unidade" -n "${2:-40}" --no-pager ;;
-    *) sed -n '2,21p' "$0"; exit 2 ;;
+    *) sed -n '2,22p' "$0"; exit 2 ;;
 esac

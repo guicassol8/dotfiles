@@ -32,6 +32,7 @@ Singleton {
         },
         fonte: { ui: "Alegreya Sans", destaque: "Cinzel", mono: "FantasqueSansM Nerd Font", icones: "Symbols Nerd Font" },
         forma: { raio: 14, borda: 1, vaos: 16 },
+        hud: { letreiro_sala: true },
         texto: {
             rotulo: "DESPERTAR DA MANA", lema: "A mana está em todos, e o poder que ela dá é justo.",
             expansao: "O grimório se abre.", bloqueio: "O grimório está selado.",
@@ -124,6 +125,16 @@ Singleton {
         fogo: "Fogo", agua: "Água", terra: "Terra", vento: "Vento", eletricidade: "Eletricidade", "mana-pura": "Mana pura"
     })
 
+    // herois: titulo de cada um ([grimorio.herois] no dominios.toml); fora do grimorio, vazio.
+    // Tema.heroi("fogo") -> "O Espadachim da Brasa"; temHeroi: ha arte do heroi no acervo.
+    readonly property var herois: dados.herois || ({})
+    function heroi(nome) {
+        return herois[nome] || "";
+    }
+    function temHeroi(nome) {
+        return heroi(nome) !== "" && sprite("heroi-" + nome + "-64") !== null;
+    }
+
     // elemento ativo: vem do Nucleo; antes da primeira mensagem vale o elemento.json
     // $HUD_ELEMENTO fixa um elemento (teste: ver o widget nas seis cores)
     readonly property string elemento: {
@@ -174,6 +185,8 @@ Singleton {
 
     // ---- textos do dominio (lema, rotulo, ficha_titulo...)
     readonly property var textos: dados.texto
+    // ---- ajustes do HUD ([<dominio>.hud] no dominios.toml): letreiro_sala...
+    readonly property var ajustes: dados.hud || ({})
 
     // cor com outra opacidade: Tema.alfa(Tema.destaque, 0.4)
     function alfa(cor, a) {

@@ -242,6 +242,7 @@ Item {
         visible: opacity > 0
         TextoPixel { tipo: "goticoGrande"; sombra: true; contorno: true; color: Tema.texto; text: "Despertar da Mana"; anchors.horizontalCenter: parent.horizontalCenter }
         Row {
+            id: capitulo
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 12
             Figura { fonte: "florao"; anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: 4 }
@@ -256,6 +257,16 @@ Item {
             }
             Figura { fonte: "florao"; anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: 4 }
         }
+    }
+    // o heroi do elemento, discreto ao lado do capitulo (corpo de 64 px de arte, 1:1)
+    Figura {
+        visible: letreiro.visible && Tema.temHeroi(Tema.elemento)
+        opacity: letreiro.opacity
+        fonte: "heroi-" + Tema.elemento + "-64"
+        ponto: 1
+        z: 6
+        x: Tema.grade(letreiro.x + (letreiro.width + capitulo.width) / 2 + 24)
+        y: Tema.grade(letreiro.y + letreiro.height - height + 6)
     }
     SequentialAnimation {
         id: roteiro

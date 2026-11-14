@@ -16,10 +16,14 @@ Sintaxe dos modelos:
   {{>arquivo}}                  inclui modelos/_por_dominio/<dominio>/arquivo (renderizado)
   {{dominio}} {{casa}} {{raiz}} chave do dominio, $HOME e ~/.config/dominios
   {{modo.saudacao}}             chaves de [<dominio>.modo], ja com os padroes
+  {{herois|json}}               [<dominio>.herois] (titulo de cada heroi; {} fora do grimorio)
+  {{hud|json}}                  [<dominio>.hud] (ajustes do HUD; {} se nao houver, o HUD tem os padroes)
 
 Arquivos de modelos/ (fora de _por_dominio/) viram _build/<dominio>/<mesmo nome>.
 Um arquivo em modelos/_por_dominio/<dominio>/ com o mesmo nome de um modelo
 geral substitui o geral para aquele dominio.
+Arquivo de saida igual ao que ja existe nao e regravado: quem vigia o _build (niri,
+Noctalia, HUD) so recarrega o que mudou de verdade.
 """
 import json
 import re
@@ -119,8 +123,22 @@ def contexto(dominio):
     ctx = dict(TOKENS[dominio])
     ctx.update(dominio=dominio, casa=str(Path.home()), raiz=str(RAIZ),
                indice=ORDEM.index(dominio) + 1, total=len(ORDEM),
-               modo={**MODO_PADRAO, **TOKENS[dominio].get("modo", {})})
+               modo={**MODO_PADRAO, **TOKENS[dominio].get("modo", {})},
+               hud=TOKENS[dominio].get("hud", {}), herois=TOKENS[dominio].get("herois", {}),
+               heroi={"modulo": ""})   # linha do heroi na ficha: terminal_elemento.py preenche por elemento
     return ctx
+
+
+def grava(caminho, texto):
+    """Grava `texto` em `caminho` so se mudou (devolve True se gravou)."""
+    caminho = Path(caminho)
+    try:
+        if caminho.read_text() == texto:
+            return False
+    except (FileNotFoundError, UnicodeDecodeError):
+        pass
+    caminho.write_text(texto)
+    return True
 
 
 def constroi(dominio):
@@ -139,17 +157,18 @@ def constroi(dominio):
         if fonte.suffix.lower() in BINARIOS:
             shutil.copyfile(fonte, saida)
         else:
-            saida.write_text(renderiza(fonte.read_text(), ctx, dominio, str(fonte)))
-            shutil.copymode(fonte, saida)
+            mudou = grava(saida, renderiza(fonte.read_text(), ctx, dominio, str(fonte)))
+            if mudou or (saida.stat().st_mode ^ fonte.stat().st_mode) & 0o7777:
+                shutil.copymode(fonte, saida)      # chmod a toa tambem acorda quem vigia
         feitos += 1
     # tokens prontos para quem nao le TOML
     plano = {"dominio": dominio, **{k: v for k, v in TOKENS[dominio].items()}}
-    (destino / "tokens.json").write_text(json.dumps(plano, ensure_ascii=False, indent=2) + "\n")
+    grava(destino / "tokens.json", json.dumps(plano, ensure_ascii=False, indent=2) + "\n")
     linhas = [f"  --{grupo}-{k.replace('_', '-')}: {v};" for grupo in ("cor", "ansi") for k, v in TOKENS[dominio][grupo].items()]
     linhas += [f"  --fonte-{k.replace('_', '-')}: {json.dumps(v) if isinstance(v, str) else v};" for k, v in TOKENS[dominio]["fonte"].items()]
     linhas += [f"  --forma-{k.replace('_', '-')}: {v if isinstance(v, str) else str(v) + ('px' if k in ('raio', 'borda', 'vaos') else '')};"
                for k, v in TOKENS[dominio]["forma"].items()]
-    (destino / "tokens.css").write_text(":root {\n" + "\n".join(linhas) + "\n}\n")
+    grava(destino / "tokens.css", ":root {\n" + "\n".join(linhas) + "\n}\n")
     # arte e sons gerados
     for nome, alvo in ((f"papeis/{dominio}.png", "papel.png"), (f"papeis/{dominio}-logo.png", "logo.png"),
                        (f"papeis/{dominio}-desfocado.png", "papel-desfocado.png")):

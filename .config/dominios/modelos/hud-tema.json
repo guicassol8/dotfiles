@@ -31,6 +31,8 @@
     "borda": {{forma.borda}},
     "vaos": {{forma.vaos}}
   },
+  "hud": {{hud|json}},
+  "herois": {{herois|json}},
   "texto": {
     "rotulo": {{rotulo|json}},
     "lema": {{lema|json}},

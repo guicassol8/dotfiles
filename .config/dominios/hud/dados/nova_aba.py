@@ -1,4 +1,4 @@
-"""Estado da nova aba do Chrome (estado.json e cena.png), compartilhado pelo nucleo
+"""Estado da nova aba do Chrome (estado.json, cena.png e heroi.png), compartilhado pelo nucleo
 e por bin/nova-aba-estado para os dois caminhos nao divergirem.
 Ambiente de teste: NOVA_ABA_PASTA (destino), DOMINIOS_ESTADO (pasta de estado)."""
 import json
@@ -6,9 +6,12 @@ import os
 import shutil
 from datetime import datetime
 
+import herois   # titulo do heroi ([grimorio.herois] no dominios.toml)
+
 AQUI = os.path.dirname(os.path.realpath(__file__))
 RAIZ = os.path.dirname(os.path.dirname(AQUI))
 CENAS = os.path.join(RAIZ, "hud/papel/cenas")
+SPRITES = os.path.join(RAIZ, "hud/sprites")
 ELEMENTOS = ("fogo", "agua", "terra", "vento", "eletricidade", "mana-pura")
 
 
@@ -57,6 +60,7 @@ def monta(antigo, el, jog, of, pg, elemento=None):
         "xp": pega(jog.get("xp"), "xp"),
         "xp_proximo": pega(jog.get("xp_proximo"), "xp_proximo"),
         "titulo": pega(jog.get("titulo"), "titulo", ""),
+        "heroi": herois.titulo(elemento),
         "oficios_feitos": pega(of.get("feitos"), "oficios_feitos"),
         "oficios_total": pega(of.get("total"), "oficios_total"),
         "frase": pega(pg.get("texto"), "frase", ""),
@@ -75,12 +79,24 @@ def grava_atomico(destino, escreve):
             os.unlink(tmp)
 
 
+def arte_heroi(elemento):
+    """Corpo inteiro (128 px) do heroi do elemento, ou None."""
+    arq = os.path.join(SPRITES, f"heroi-{elemento}-128.png")
+    return arq if os.path.isfile(arq) else None
+
+
 def grava(estado, copiar_cena=True):
-    """Escreve estado.json (e cena.png se pedido) na pasta da nova aba."""
+    """Escreve estado.json (e cena.png e heroi.png se pedido) na pasta da nova aba."""
     dest = pasta()
     cena = os.path.join(CENAS, estado["elemento"] + ".png")
     if copiar_cena and os.path.isfile(cena):
         grava_atomico(os.path.join(dest, "cena.png"), lambda t: shutil.copyfile(cena, t))
+    if copiar_cena:
+        heroi = arte_heroi(estado["elemento"])
+        if heroi:
+            grava_atomico(os.path.join(dest, "heroi.png"), lambda t: shutil.copyfile(heroi, t))
+        elif os.path.isfile(os.path.join(dest, "heroi.png")):
+            os.unlink(os.path.join(dest, "heroi.png"))    # sem arte: a pagina nao mostra heroi velho
 
     def escreve(t):
         with open(t, "w", encoding="utf-8") as f:
@@ -97,7 +113,8 @@ def atualiza_do_nucleo(dados, ultimo_elemento):
     antigo = le(os.path.join(dest, "estado.json"))
     est = monta(antigo, dados.get("elemento") or {}, dados.get("jogador") or {},
                 dados.get("oficios") or {}, dados.get("pagina") or {})
-    cena_falta = not os.path.isfile(os.path.join(dest, "cena.png"))
+    cena_falta = (not os.path.isfile(os.path.join(dest, "cena.png"))
+                  or (arte_heroi(est["elemento"]) is not None and not os.path.isfile(os.path.join(dest, "heroi.png"))))
     est_cmp = {k: v for k, v in est.items() if k != "atualizado"}
     ant_cmp = {k: v for k, v in antigo.items() if k != "atualizado"}
     return est, est_cmp != ant_cmp, (est["elemento"] != ultimo_elemento or cena_falta)

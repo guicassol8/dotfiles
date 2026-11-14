@@ -32,7 +32,7 @@ def gera():
         d = base / el
         d.mkdir(parents=True, exist_ok=True)
         for nome, arq in MODELOS.items():
-            (d / nome).write_text(c.renderiza(arq.read_text(), ctx, DOMINIO, str(arq)))
+            c.grava(d / nome, c.renderiza(arq.read_text(), ctx, DOMINIO, str(arq)))
     return len(te.ELEMENTOS)
 
 

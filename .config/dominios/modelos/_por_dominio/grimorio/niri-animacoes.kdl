@@ -52,9 +52,16 @@
             }
         "
     }
+    // Trocas de sala e de coluna: mola um pouco abaixo do amortecimento critico. Chega
+    // antes que a mola antiga (95% em ~145 ms) e assenta passando uns 8 a 10 px do alvo,
+    // quieta em ~370 ms. Estes tres so aceitam mola ou curva (sem shader no niri 26.04).
     workspace-switch {
-        spring damping-ratio=1.0 stiffness=700 epsilon=0.0001
+        spring damping-ratio=0.84 stiffness=620 epsilon=0.0001
+    }
+    // o deslize quando o foco muda de coluna
+    horizontal-view-movement {
+        spring damping-ratio=0.86 stiffness=700 epsilon=0.0001
     }
     window-movement {
-        spring damping-ratio=0.9 stiffness=600 epsilon=0.0001
+        spring damping-ratio=0.86 stiffness=640 epsilon=0.0001
     }

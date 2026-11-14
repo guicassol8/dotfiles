@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""nova-aba-estado: monta o estado.json e a cena.png da nova aba do Chrome.
+"""nova-aba-estado: monta o estado.json, a cena.png e o heroi.png da nova aba do Chrome.
 
 Uso: nova-aba-estado [elemento]    (sem argumento, usa o elemento ativo)
 Le elemento.json e jogador.json do estado do usuario e pede ao nucleo os canais
