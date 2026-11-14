@@ -1,10 +1,13 @@
 #!/bin/sh
-# Linha de status do Claude Code: elemento, nivel e oficios na esquerda; modelo e contexto na direita.
+# Linha de status do Claude Code: elemento, nivel e oficios na esquerda; modelo, contexto e uso
+# dos limites (sessao de 5 h e semana, de `rate_limits` no JSON) na direita.
 # Le o JSON da sessao no stdin. Nunca sai com erro nem imprime vazio.
 # Teste: CLAUDE_STATUS_DOMINIO, CLAUDE_STATUS_ELEMENTO, CLAUDE_STATUS_COR (truecolor|256).
 raiz=$(dirname "$(dirname "$(readlink -f "$0")")")
 est="$HOME/.local/state/dominios"
 entrada=$(cat 2>/dev/null)
+# ultima entrada recebida, para depurar o formato (so local, fora do git)
+mkdir -p "$HOME/.cache/dominios" 2>/dev/null && printf %s "$entrada" > "$HOME/.cache/dominios/claude-status-entrada.json" 2>/dev/null
 dom="${CLAUDE_STATUS_DOMINIO:-}"
 if [ -z "$dom" ]; then l=$(readlink "$raiz/atual" 2>/dev/null); dom=${l##*/}; fi
 cor="${CLAUDE_STATUS_COR:-}"
@@ -45,11 +48,20 @@ linha=$(jq -nr --arg s "$entrada" --arg dom "$dom" --arg cor "$cor" --arg el "${
        (if $tm and $js.nivel then {c:$suave, t:("NV." + ($js.nivel|tostring) + " ▪ " + ($js.rank // ""))} else empty end),
        (if $tm and $dia then {c:$suave, t:("ofícios " + (($dia.feitas|length)|tostring) + "/" + (($dia.agendadas|length)|tostring))} else empty end)
      ]) as $esq
-  | ($modelo + (if $pct != null then " ▪ ctx " + (($pct|floor)|tostring) + "%" else "" end)) as $dir_t
-  | (if $tm and $pct != null then (if $pct >= 90 then esc($tm.cor.erro) elif $pct >= 70 then esc($tm.cor.aviso) else $suave end) else $suave end) as $cctx
+  | ($in.rate_limits.five_hour // null) as $l5 | ($in.rate_limits.seven_day // null) as $l7
+  | def corp($p): if $tm then (if $p >= 90 then esc($tm.cor.erro) elif $p >= 70 then esc($tm.cor.aviso) else $suave end) else $suave end;
+    def pc: (floor | tostring) + "%";
+    ([ {c:$suave, t:$modelo},
+       (if $pct != null then {c:corp($pct), t:("ctx " + ($pct|pc))} else empty end),
+       (if $l5 != null and $l5.used_percentage != null then {c:corp($l5.used_percentage),
+           t:("sessão " + ($l5.used_percentage|pc)
+              + (if $l5.used_percentage >= 80 and $l5.resets_at != null then " ↻" + ($l5.resets_at|strflocaltime("%H:%M")) else "" end))} else empty end),
+       (if $l7 != null and $l7.used_percentage != null then {c:corp($l7.used_percentage), t:("semana " + ($l7.used_percentage|pc))} else empty end)
+     ]) as $dir
+  | ($dir | map(.t) | join(" ▪ ")) as $dir_t
   | ($esq | map(.c + .t + $rs) | join($suave + "  ▪  " + $rs)) as $esq_c
   | ($esq | map(.t) | join("  ▪  ")) as $esq_p
-  | ($cctx + $dir_t + $rs) as $dir_c
+  | ($dir | map(.c + .t + $rs) | join($suave + " ▪ " + $rs)) as $dir_c
   | (if ($esq|length) == 0 then $dir_c
      else ($cols - 46 - ($esq_p|length) - ($dir_t|length)) as $n
        | $esq_c + (if $cols > 0 and $n >= 2 then (" " * $n) else "   " end) + $dir_c end)
