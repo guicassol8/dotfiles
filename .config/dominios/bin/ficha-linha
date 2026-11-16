@@ -13,13 +13,18 @@ esac
 if [ "$tipo" = capitulo ]; then
   # capitulo <r, g, b do elemento>: nome do elemento e o motivo, lidos de elemento.json
   ej=${XDG_STATE_HOME:-$HOME/.local/state}/dominios/elemento.json
-  cat "$ej" 2>/dev/null | awk -v c="$c1" '
+  # largura do terminal: o motivo e cortado para nao quebrar linha (a sobra caia na coluna 0,
+  # atras do heroi). A coluna do valor depende do tamanho do heroi (fish.fish: x2 abaixo de 125).
+  cols=$( { stty size </dev/tty; } 2>/dev/null | cut -d' ' -f2); [ -n "$cols" ] || cols=${COLUMNS:-0}
+  cat "$ej" 2>/dev/null | awk -v c="$c1" -v cols="$cols" '
     function f(k,   n,p,i){ n=split($0,p,"\""); for(i=1;i<n;i++) if(p[i]==k && p[i+1] ~ /^[ \t]*:[ \t]*$/) return p[i+2]; return "" }
     { if(!e) e=f("elemento"); if(!m) m=f("motivo") }
     END { gsub(/,/," ",c); split(c,a," ")
       n=(e=="fogo")?"Fogo":(e=="agua")?"Água":(e=="terra")?"Terra":(e=="vento")?"Vento":(e=="eletricidade")?"Eletricidade":(e=="mana-pura")?"Mana Pura":""
       if(n==""){ print "\033[2m—  sem registro\033[0m"; exit }
-      printf "\033[1;38;2;%d;%d;%dm%s\033[0m  ▪  %s\n", a[1],a[2],a[3], n, m }'
+      if (cols > 0) { max = cols - (cols < 125 ? 58 : 73) - length(n) - 6
+        if (max < 8) m = ""; else if (length(m) > max) m = substr(m, 1, max - 1) "…" }
+      printf "\033[1;38;2;%d;%d;%dm%s\033[0m%s\n", a[1],a[2],a[3], n, (m == "" ? "" : "  ▪  " m) }'
   exit 0
 fi
 { [ "$tipo" = mana ] && cat /proc/meminfo; [ "$tipo" = xp ] || [ "$tipo" = nivel ] && cat "$json" 2>/dev/null; } | awk -v tipo="$tipo" -v c1="$c1" -v c2="$c2" -v cv="$cv" -v vida="$v" -v st="$st" '
