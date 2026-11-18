@@ -58,11 +58,17 @@ max_length         = 200
 {{>noctalia-barra.toml}}
 
 # ------------------------------------------------------------ notificacoes
+# O cartao cai na coluna direita da mesa do HUD (Familiares: x 1440, y 54, 456 de largura;
+# a barra reserva 48 px, entao offset_y 6 poe o topo em 54),
+# na grade de 3 px: borda de 3 px na cor do elemento (primary; a paleta segue o elemento
+# pelo gancho elemento.d/66-noctalia), fundo surface do grimorio, cantos de 3,6 px
+# (corner_radius_scale global). Urgente fica na cor de erro (fogo). Fonte, raio e sombra
+# do cartao o Noctalia 5.4 nao deixa trocar so na notificacao.
 [notification]
 position           = "top_right"
 offset_x           = 24
-offset_y           = 9
-width              = 384
+offset_y           = 6
+width              = 456
 background_opacity = 0.96
 border             = true
 border_color       = "primary"

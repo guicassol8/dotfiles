@@ -379,6 +379,14 @@ O pacote antigo segue em `/var/cache/pacman/pkg/noctalia-shell-4.7.7-3-any.pkg.t
   O papel `papeis/grimorio.png` é a cena de título (`grimorio-titulo.png`); a arte antiga
   ficou em `grimorio-antigo.png`. Cursor em pixel (`Grimorio`, 32) só nele, por
   `expandir.d/45-cursor`.
+- Notificações do grimório (18/11): o cartão cai na coluna direita da mesa do HUD (x 1440,
+  y 54, 456 de largura, alinhado com Familiares e com a ponta da barra), borda de 3 px na
+  cor do elemento (`primary`, que segue o elemento pelo mesmo `66-noctalia`; urgente fica
+  em fogo), fundo `surface` do grimório. O Noctalia 5.4 não deixa trocar fonte, raio nem
+  sombra só da notificação: a fonte é a global (`shell.font_family`, lisa) e o raio vem do
+  `corner_radius_scale` global (3,6 px). Fonte de pixel e moldura com gemas exigiriam
+  desenhar o cartão fora do Noctalia (plugin de camada sem API de notificação, ou o HUD
+  tomando o serviço): não compensa.
 - Nomes de cor: o Noctalia 5.4 aposentou `surface_variant` e `outline`. Os modelos e o
   plugin já usam `surface_container` e `outline_variant` (o plugin declara `plugin_api = 43`).
 
